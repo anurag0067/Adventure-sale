@@ -143,7 +143,7 @@
 </head>
 <body>
 
-<div id="loading" class="loading">Loading ledger…</div>
+<div id="loading" class="loading">Loading Data…</div>
 <div id="app" class="app hidden">
 
   <header>
@@ -347,7 +347,7 @@ let state = {
   rideId: "zipline",
   count: 1,
   rounds: 1,
-  priceType: "weekday",
+  priceType: (new Date().getDay() === 0 || new Date().getDay() === 6) ? "weekend" : "weekday",
   payment: "card",
   reader: DEFAULT_READERS[0],
   customReaderMode: false,
