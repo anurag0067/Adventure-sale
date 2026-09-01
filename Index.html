@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basecamp Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#101A15; --surface:#17231C; --surface-raised:#1E2E25;
+    --paper:#EDE7D8; --paper-shadow:#D8CFB8; --ink:#1B2A22;
+    --text:#EDEAE0; --text-muted:#93A69A; --accent:#FF6A13; --accent-dim:#B94E10;
+    --rope:#C9A66B; --teal:#2FA88A; --danger:#E15B4B; --line:#2A3A30;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;-webkit-tap-highlight-color:transparent;font-size:15px;}
+  .disp{font-family:'Oswald',sans-serif;}
+  .app{max-width:640px;margin:0 auto;min-height:100vh;}
+  header{border-bottom:1px solid var(--line);padding:20px 16px 12px;display:flex;align-items:center;justify-content:space-between;}
+  .title{font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+  .subtitle{color:var(--text-muted);font-size:12px;margin-top:2px;}
+  .rate-badge{font-size:11px;font-weight:700;padding:7px 11px;border-radius:8px;text-transform:uppercase;letter-spacing:.04em;border:1px solid var(--line);color:var(--rope);}
+  .rate-badge.weekend{background:var(--accent);color:var(--bg);border:none;}
+  .tabs{display:flex;gap:4px;padding:10px 8px 0;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px;border-radius:10px 10px 0 0;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;background:transparent;color:var(--text-muted);border:none;border-bottom:1px solid var(--line);cursor:pointer;min-height:48px;}
+  .tab.active{background:var(--accent);color:var(--bg);border-bottom:none;}
+  .tab svg{width:18px;height:18px;}
+  main{padding:18px 16px 32px;}
+  .hidden{display:none !important;}
+
+  /* Ticket stub */
+  .stub{background:var(--paper);color:var(--ink);border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+  .stub-body{padding:20px 18px 16px;}
+  .stub-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .stub-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.2em;opacity:.6;}
+  .stub-date{font-size:12px;opacity:.6;}
+  .step-label{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;opacity:.7;margin:16px 0 8px;}
+  .step-label:first-of-type{margin-top:0;}
+  .step-hint{text-transform:none;font-weight:400;opacity:.7;letter-spacing:0;font-size:11px;}
+  .btn-main{font-size:14px;font-weight:600;}
+  .btn-sub{display:block;font-size:9.5px;opacity:.7;text-transform:none;font-weight:400;letter-spacing:0;}
+  .ride-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .ride-btn{border:2px solid var(--ink);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;background:transparent;color:var(--ink);cursor:pointer;text-align:left;min-height:56px;}
+  .ride-btn.active{background:var(--ink);color:var(--paper);}
+  .ride-btn svg{width:20px;height:20px;flex-shrink:0;}
+  .ride-name{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;line-height:1.2;}
+  .ride-price{font-size:11.5px;opacity:.7;margin-top:2px;}
+  .guest-stepper{display:flex;align-items:center;gap:14px;}
+  .guest-stepper button{width:44px;height:44px;border-radius:12px;border:2px solid var(--ink);background:transparent;font-weight:700;font-size:20px;color:var(--ink);cursor:pointer;}
+  .guest-val{min-width:40px;text-align:center;font-weight:700;font-size:22px;}
+  .pay-btns{display:flex;gap:10px;}
+  .pay-btn{flex:1;border:2px solid var(--ink);border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;background:transparent;color:var(--ink);cursor:pointer;min-height:48px;}
+  .pay-btn.active{background:var(--ink);color:var(--paper);}
+  .pay-btn svg{width:16px;height:16px;}
+  .pay-btn.price-btn{flex-direction:column;gap:2px;}
+  .reader-select-wrap{margin-top:8px;}
+  select.reader-select{width:100%;border:2px solid var(--ink);border-radius:12px;padding:12px 14px;background:var(--paper);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:14px;min-height:48px;}
+  .custom-reader-input{margin-top:8px;width:100%;border:2px solid var(--ink);background:transparent;color:var(--ink);border-radius:12px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;min-height:48px;}
+  .stub-footer{background:var(--ink);color:var(--paper);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
+  .stub-footer .calc{font-size:12px;opacity:.7;}
+  .stub-footer .calc .would{opacity:.75;text-decoration:line-through;margin-left:6px;}
+  .stub-footer .total{font-size:22px;font-weight:700;}
+  .stub-footer .total.free{color:var(--rope);}
+
+  .add-btn{width:100%;margin-top:20px;background:var(--accent);color:var(--bg);border:none;border-radius:12px;padding:14px;font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;}
+  .add-btn.flash{background:var(--teal);}
+  .add-btn svg{width:18px;height:18px;}
+
+  .paste-box{margin-top:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .paste-label{font-family:'Oswald',sans-serif;color:var(--rope);font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;}
+  textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:13px;resize:none;}
+  textarea::placeholder{opacity:.4;}
+  .parse-btn{margin-top:8px;border:1.5px solid var(--rope);color:var(--rope);background:transparent;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;}
+  .parse-btn:disabled{opacity:.3;cursor:default;}
+  #parseSummary{margin-top:8px;font-size:12px;}
+  .ok-line{color:var(--teal);}
+  .err-line{color:var(--danger);margin-top:4px;display:flex;gap:6px;align-items:flex-start;}
+  .err-line svg{width:13px;height:13px;flex-shrink:0;margin-top:2px;}
+
+  /* stats */
+  .stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .stat-tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;flex:1;min-width:140px;}
+  .stat-label{color:var(--text-muted);font-family:'Oswald',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+  .stat-value{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;}
+  .stat-sub{color:var(--text-muted);font-size:11px;margin-top:2px;}
+
+  .empty{color:var(--text-muted);text-align:center;padding:40px 0;font-size:13px;}
+
+  .entry-row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .entry-left{display:flex;align-items:center;gap:12px;}
+  .entry-icon{width:36px;height:36px;border-radius:8px;background:var(--surface-raised);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .entry-icon svg{width:16px;height:16px;}
+  .entry-ride{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;text-transform:uppercase;}
+  .entry-meta{color:var(--text-muted);font-size:11px;margin-top:2px;}
+  .entry-right{display:flex;align-items:center;gap:12px;}
+  .entry-amount{font-weight:700;}
+  .del-btn{background:none;border:none;color:var(--danger);cursor:pointer;padding:2px;}
+  .del-btn svg{width:16px;height:16px;}
+
+  .section-title{font-family:'Oswald',sans-serif;color:var(--rope);font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;}
+  .bar-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .bar-label{font-family:'Oswald',sans-serif;font-size:12px;width:96px;text-transform:uppercase;font-weight:500;flex-shrink:0;}
+  .bar-track{flex:1;height:16px;border-radius:999px;background:var(--surface-raised);overflow:hidden;}
+  .bar-fill{height:100%;background:var(--accent);border-radius:999px;}
+  .bar-value{font-size:12px;width:80px;text-align:right;flex-shrink:0;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-weight:400;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border-bottom:1px solid var(--line);}
+  th.num,td.num{text-align:right;}
+  td{padding:8px 12px;border-bottom:1px solid var(--line);}
+
+  .daychart{display:flex;align-items:flex-end;gap:4px;height:160px;padding-top:10px;}
+  .daychart .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .daychart .col-bar{width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;}
+  .daychart .col-label{font-size:9px;color:var(--text-muted);margin-top:4px;}
+
+  .loading{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:14px;}
+
+  /* Share / WhatsApp formatter */
+  .chip{border:1.5px solid var(--ink);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:600;background:transparent;color:var(--ink);cursor:pointer;min-height:40px;}
+  .range-chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .range-chip, .export-range-chip{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:11px;border-color:var(--rope);color:var(--rope);}
+  .range-chip.active, .export-range-chip.active{background:var(--rope);color:var(--ink);}
+  .wa-preview-wrap{background:#0b1410;border:1px solid var(--line);border-radius:14px;padding:4px;}
+  .wa-preview{background:#dce5db;color:#1b2a22;border-radius:10px;padding:16px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;min-height:120px;}
+  .wa-preview b{font-weight:700;}
+  .wa-actions{display:flex;gap:10px;margin-top:14px;}
+  .wa-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12.5px;cursor:pointer;border:none;text-decoration:none;}
+  .wa-btn svg{width:16px;height:16px;}
+  .wa-btn-copy{background:var(--surface-raised);color:var(--text);border:1px solid var(--line);}
+  .wa-btn-send{background:#25D366;color:#08260f;}
+  .copy-feedback{margin-top:8px;font-size:12px;color:var(--teal);min-height:16px;}
+  .export-panel{margin-top:28px;padding-top:20px;border-top:1px solid var(--line);}
+  .export-hint{color:var(--text-muted);font-size:12px;margin-bottom:14px;}
+  .export-btn{width:100%;background:var(--teal);color:#08221b;}
+  .config-warning{background:#3a2410;color:#f2c98a;border:1px solid #6b4a1e;border-radius:10px;padding:10px 14px;margin:12px 16px 0;font-size:12px;line-height:1.5;}
+  .config-warning code{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;}
+  .sync-status{margin-top:8px;font-size:12px;color:var(--danger);min-height:14px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading">Loading ledger…</div>
+<div id="app" class="app hidden">
+
+  <header>
+    <div>
+      <div class="title">Basecamp Ledger</div>
+      <div class="subtitle">Adventure ops · ticket log</div>
+    </div>
+    <div id="rateBadge" class="rate-badge">Weekday rates</div>
+  </header>
+
+  <div id="configWarning" class="config-warning hidden">
+    ⚠️ Google Sheet not connected yet — data won't be saved. See setup instructions in <code>Code.gs</code>, then paste your Web App URL into <code>WEB_APP_URL</code> near the top of this file.
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="entry">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      New
+    </button>
+    <button class="tab" data-tab="today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Today
+    </button>
+    <button class="tab" data-tab="week">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Week
+    </button>
+    <button class="tab" data-tab="month">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
+      Month
+    </button>
+    <button class="tab" data-tab="share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      Reports
+    </button>
+  </div>
+
+  <main>
+    <!-- NEW ENTRY -->
+    <section id="panel-entry">
+      <div class="stub">
+        <div class="stub-body">
+          <div class="stub-row">
+            <div class="stub-eyebrow">Ride ticket</div>
+            <div class="stub-date" id="stubDate"></div>
+          </div>
+
+          <div class="step-label">1 · Pick the ride</div>
+          <div class="ride-grid" id="rideGrid"></div>
+
+          <div class="step-label">2 · How many customers?</div>
+          <div class="guest-stepper">
+            <button id="countMinus" aria-label="Decrease customers">−</button>
+            <div class="guest-val" id="countVal">1</div>
+            <button id="countPlus" aria-label="Increase customers">+</button>
+          </div>
+
+          <div class="step-label">3 · Rounds each <span class="step-hint">(same person riding more than once)</span></div>
+          <div class="guest-stepper">
+            <button id="roundsMinus" aria-label="Decrease rounds">−</button>
+            <div class="guest-val" id="roundsVal">1</div>
+            <button id="roundsPlus" aria-label="Increase rounds">+</button>
+          </div>
+
+          <div class="step-label">4 · Price type</div>
+          <div class="pay-btns" id="priceTypeBtns">
+            <button class="pay-btn price-btn active" data-price="weekday"><span class="btn-main">Weekday</span><span class="btn-sub">₹200/person</span></button>
+            <button class="pay-btn price-btn" data-price="weekend"><span class="btn-main">Weekend</span><span class="btn-sub">(Sat–Sun)</span></button>
+          </div>
+
+          <div class="step-label">5 · Payment method</div>
+          <div class="pay-btns">
+            <button class="pay-btn active" data-pay="card">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+              Card
+            </button>
+            <button class="pay-btn" data-pay="coupon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a3 3 0 010 6"/><path d="M22 9a3 3 0 000 6"/><path d="M6 5h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z"/><path d="M9 5v14" stroke-dasharray="2 2"/></svg>
+              Coupon
+            </button>
+            <button class="pay-btn" data-pay="guest">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Guest
+            </button>
+          </div>
+
+          <div id="readerSection" class="hidden">
+            <div class="step-label">6 · Which card reader?</div>
+            <div class="reader-select-wrap">
+              <select class="reader-select" id="readerSelect"></select>
+            </div>
+            <input id="customReaderInput" class="custom-reader-input hidden" placeholder="Type new reader name" />
+          </div>
+        </div>
+        <div class="stub-footer">
+          <div class="calc" id="stubCalc">1 × ₹200</div>
+          <div class="total" id="stubTotal">₹200</div>
+        </div>
+      </div>
+
+      <button class="add-btn" id="addBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Add ticket
+      </button>
+      <div id="addSyncStatus" class="sync-status"></div>
+
+      <div class="paste-box">
+        <div class="paste-label">Quick paste (WhatsApp style)</div>
+        <textarea id="pasteText" rows="3" placeholder="One line per ticket, e.g.&#10;200 zipline card tap on Meltdown&#10;500 bungee coupon&#10;400 zip cycle guest"></textarea>
+        <button class="parse-btn" id="parseBtn" disabled>Parse &amp; log</button>
+        <div id="parseSummary"></div>
+      </div>
+    </section>
+
+    <!-- TODAY -->
+    <section id="panel-today" class="hidden">
+      <div class="stats-row">
+        <div class="stat-tile"><div class="stat-label">Today's revenue</div><div class="stat-value" id="todayRevenue" style="color:var(--accent)">₹0</div></div>
+        <div class="stat-tile"><div class="stat-label">Customers logged</div><div class="stat-value" id="todayGuests">0</div></div>
+      </div>
+      <div id="todayList"></div>
+    </section>
+
+    <!-- WEEK -->
+    <section id="panel-week" class="hidden">
+      <div id="weekContent"></div>
+    </section>
+
+    <!-- MONTH -->
+    <section id="panel-month" class="hidden">
+      <div id="monthContent"></div>
+    </section>
+
+    <!-- SHARE / FORMAT FOR WHATSAPP -->
+    <section id="panel-share" class="hidden">
+      <div class="section-title">Format a report for WhatsApp</div>
+
+      <div class="range-chips" id="rangeChips">
+        <button class="chip range-chip active" data-range="today">Today</button>
+        <button class="chip range-chip" data-range="week">Last 7 days</button>
+        <button class="chip range-chip" data-range="month">This month</button>
+      </div>
+
+      <div class="wa-preview-wrap">
+        <div class="wa-preview" id="waPreview"></div>
+      </div>
+
+      <div class="wa-actions">
+        <button class="wa-btn wa-btn-copy" id="copyBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy text
+        </button>
+        <a class="wa-btn wa-btn-send" id="sendBtn" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3.5A11.8 11.8 0 0012 0C5.4 0 0 5.4 0 12c0 2.1.6 4.2 1.6 6L0 24l6.2-1.6c1.7.9 3.7 1.4 5.8 1.4 6.6 0 12-5.4 12-12 0-3.2-1.2-6.2-3.5-8.5zM12 21.8c-1.9 0-3.7-.5-5.3-1.5l-.4-.2-3.7 1 1-3.6-.2-.4C2.5 15.5 2 13.8 2 12 2 6.5 6.5 2 12 2s10 4.5 10 10-4.5 9.8-10 9.8zm5.4-7.4c-.3-.1-1.7-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C10 7.8 9.5 6.6 9.3 6c-.2-.5-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9 1-.9 2.3 0 1.3 1 2.6 1.1 2.8.1.2 2 3 4.7 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.6.2-1.2.2-1.3-.1-.2-.3-.2-.6-.4z"/></svg>
+          Send on WhatsApp
+        </a>
+      </div>
+      <div id="copyFeedback" class="copy-feedback"></div>
+
+      <div class="export-panel">
+        <div class="section-title">Export data to Excel</div>
+        <div class="range-chips" id="exportRangeChips">
+          <button class="chip export-range-chip active" data-range="today">Today</button>
+          <button class="chip export-range-chip" data-range="week">Last 7 days</button>
+          <button class="chip export-range-chip" data-range="month">This month</button>
+          <button class="chip export-range-chip" data-range="all">All time</button>
+        </div>
+        <div class="export-hint" id="exportHint"></div>
+        <button class="wa-btn export-btn" id="exportBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Download .xlsx
+        </button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ---------- Google Sheets backend config ----------
+// Paste the Web App URL you get after deploying Code.gs (ends in /exec).
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyRVfWwLYlE7zPV2dhyRA6TbZUGnJr9pWDndDz6s94JpJ5_Uw24gzdA1Dm3CThPv2WNeA/exec";
+
+// ---------- Config ----------
+const RIDES = [
+  { id:"zipline", name:"Zip Line", short:"ZIP LINE", weekday:200, weekend:300,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>' },
+  { id:"zipcycle", name:"Zip Cycle", short:"ZIP CYCLE", weekday:200, weekend:400,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 100-2 1 1 0 000 2zM12 17.5V14l-3-3 4-3 2 3h2"/></svg>' },
+  { id:"bungee", name:"Bungee Jump", short:"BUNGEE", weekday:200, weekend:500,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22V10"/><path d="M8 10h8l-4 6-4-6z"/></svg>' },
+  { id:"climbing", name:"Mountain Climbing", short:"CLIMBING", weekday:200, weekend:200,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-7 4 7M3 21l6-11 3 5.5M13.5 10L17 3l4 8"/></svg>' },
+];
+const rideById = id => RIDES.find(r => r.id === id);
+const DEFAULT_READERS = ["Adventure Reader", "Meltdown", "Tora Tora"];
+
+// ---------- State ----------
+let entries = [];
+let entriesLoaded = false;
+let readers = [...DEFAULT_READERS];
+let state = {
+  rideId: "zipline",
+  count: 1,
+  rounds: 1,
+  priceType: (new Date().getDay() === 0 || new Date().getDay() === 6) ? "weekend" : "weekday",
+  payment: "card",
+  reader: DEFAULT_READERS[0],
+  customReaderMode: false,
+};
+
+// ---------- Helpers ----------
+function isWeekend(d){ const day = d.getDay(); return day === 0 || day === 6; }
+function priceFor(rideId, d){ const r = rideById(rideId); return isWeekend(d) ? r.weekend : r.weekday; }
+function priceForType(rideId, priceType){ const r = rideById(rideId); return priceType === "weekend" ? r.weekend : r.weekday; }
+function fmtMoney(n){ return "₹" + Number(n||0).toLocaleString("en-IN"); }
+function ymd(d){ return d.toISOString().slice(0,10); }
+function dayLabel(d){ return d.toLocaleDateString("en-IN",{weekday:"short",day:"2-digit",month:"short"}); }
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+function isPaid(e){ return e.payment !== "guest"; }
+function collected(e){ return isPaid(e) ? e.amount : 0; }
+
+function isConfigured(){
+  return !!WEB_APP_URL && WEB_APP_URL.indexOf("PASTE_YOUR_WEB_APP_URL_HERE") === -1;
+}
+async function loadEntries(){
+  if(!isConfigured()) return [];
+  try{
+    const res = await fetch(`${WEB_APP_URL}?action=getEntries`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    return data;
+  }catch(e){ console.error("loadEntries failed", e); return []; }
+}
+async function apiAddEntry(entry){
+  if(!isConfigured()) return false;
+  try{
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight
+      body: JSON.stringify({ action: "addEntry", entry }),
+    });
+    return true;
+  }catch(e){ console.error("addEntry failed", e); return false; }
+}
+async function apiAddEntries(list){
+  if(!isConfigured()) return false;
+  try{
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "addEntries", entries: list }),
+    });
+    return true;
+  }catch(e){ console.error("addEntries failed", e); return false; }
+}
+async function apiDeleteEntry(id){
+  if(!isConfigured()) return false;
+  try{
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "deleteEntry", id }),
+    });
+    return true;
+  }catch(e){ console.error("deleteEntry failed", e); return false; }
+}
+async function loadReaders(){
+  if(!isConfigured()) return [...DEFAULT_READERS];
+  try{
+    const res = await fetch(`${WEB_APP_URL}?action=getReaders`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    return data && data.length ? data : [...DEFAULT_READERS];
+  }catch(e){ console.error("loadReaders failed", e); return [...DEFAULT_READERS]; }
+}
+async function apiAddReader(name){
+  if(!isConfigured()) return false;
+  try{
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "addReader", name }),
+    });
+    return true;
+  }catch(e){ console.error("addReader failed", e); return false; }
+}
+
+// ---------- Parser ----------
+const RIDE_ALIASES = {
+  zipline: ["zip line","zipline","zip-line"],
+  zipcycle: ["zip cycle","zipcycle","zip-cycle","cycle"],
+  bungee: ["bungee jump","bunjee jump","bungee","bunjee"],
+  climbing: ["mountain climbing","climbing","climb","mountain"],
+};
+function parseLine(raw, today){
+  const line = raw.trim();
+  if(!line) return null;
+  const lower = line.toLowerCase();
+  let rideId = null;
+  for(const [id, aliases] of Object.entries(RIDE_ALIASES)){
+    if(aliases.some(a => lower.includes(a))){ rideId = id; break; }
+  }
+  if(!rideId) return { error: true, raw: line };
+  const payment = /\b(guest|comp|complimentary|free)\b/.test(lower) ? "guest"
+    : (lower.includes("coupon") || lower.includes("cash")) ? "coupon" : "card";
+  let reader = null;
+  if(payment === "card"){
+    const tapMatch = line.match(/tap on ([a-zA-Z0-9 ]+)/i);
+    reader = tapMatch ? tapMatch[1].split(",")[0].trim() : "Adventure Reader";
+  }
+  const countMatch = lower.match(/x\s*(\d+)|for\s+(\d+)|(\d+)\s*(?:people|persons|pax)/);
+  const count = countMatch ? parseInt(countMatch[1]||countMatch[2]||countMatch[3],10) : 1;
+  const roundsMatch = lower.match(/(\d+)\s*rounds?/);
+  const rounds = roundsMatch ? parseInt(roundsMatch[1],10) : 1;
+  const unit = priceFor(rideId, today);
+  const amount = unit*count*rounds;
+  return {
+    id: Date.now()+"-"+Math.random().toString(36).slice(2,8),
+    rideId, count, rounds, priceType: isWeekend(today) ? "weekend" : "weekday",
+    payment, reader,
+    unit, amount,
+    timestamp: today.toISOString(),
+  };
+}
+
+// ---------- Rendering: header/rate badge ----------
+function renderHeader(){
+  const now = new Date();
+  const badge = document.getElementById("rateBadge");
+  if(isWeekend(now)){ badge.textContent = "Weekend rates"; badge.classList.add("weekend"); }
+  else { badge.textContent = "Weekday rates"; badge.classList.remove("weekend"); }
+}
+
+// ---------- Rendering: ticket stub ----------
+function renderRideGrid(){
+  const grid = document.getElementById("rideGrid");
+  grid.innerHTML = RIDES.map(r => `
+    <button class="ride-btn ${r.id===state.rideId?'active':''}" data-ride="${r.id}">
+      ${r.icon}
+      <div>
+        <div class="ride-name">${r.short}</div>
+        <div class="ride-price">${fmtMoney(priceForType(r.id, state.priceType))}/person</div>
+      </div>
+    </button>
+  `).join("");
+  grid.querySelectorAll(".ride-btn").forEach(btn => {
+    btn.addEventListener("click", () => { state.rideId = btn.dataset.ride; renderAll(); });
+  });
+}
+function renderPriceTypeButtons(){
+  const r = rideById(state.rideId);
+  document.querySelectorAll(".pay-btn[data-price]").forEach(b => {
+    b.classList.toggle("active", b.dataset.price === state.priceType);
+    if(b.dataset.price === "weekday") b.innerHTML = `<span class="btn-main">Weekday</span><span class="btn-sub">₹${r.weekday}/person</span>`;
+    if(b.dataset.price === "weekend") b.innerHTML = `<span class="btn-main">Weekend</span><span class="btn-sub">(Sat–Sun) ₹${r.weekend}/person</span>`;
+  });
+}
+function renderReaderSection(){
+  const section = document.getElementById("readerSection");
+  const input = document.getElementById("customReaderInput");
+  if(state.payment !== "card"){ section.classList.add("hidden"); return; }
+  section.classList.remove("hidden");
+  const select = document.getElementById("readerSelect");
+  const options = [...readers, "+ Add new reader…"];
+  select.innerHTML = options.map(o => `<option value="${esc(o)}" ${(!state.customReaderMode && state.reader===o)?"selected":""}>${esc(o)}</option>`).join("");
+  if(state.customReaderMode) select.value = "+ Add new reader…";
+  input.classList.toggle("hidden", !state.customReaderMode);
+}
+function renderStubFooter(){
+  const now = new Date();
+  const price = priceForType(state.rideId, state.priceType);
+  const total = price * state.count * state.rounds;
+  document.getElementById("stubDate").textContent = dayLabel(now);
+  const roundsPart = state.rounds > 1 ? ` × ${state.rounds} rounds` : "";
+  document.getElementById("countVal").textContent = state.count;
+  document.getElementById("roundsVal").textContent = state.rounds;
+  const totalEl = document.getElementById("stubTotal");
+  totalEl.textContent = fmtMoney(total);
+  if(state.payment === "guest"){
+    totalEl.classList.add("free");
+    document.getElementById("stubCalc").innerHTML = `${state.count} customers${roundsPart} × ${fmtMoney(price)} · <span class="would">not collected</span>`;
+  } else {
+    totalEl.classList.remove("free");
+    document.getElementById("stubCalc").innerHTML = `${state.count} customers${roundsPart} × ${fmtMoney(price)}`;
+  }
+}
+function renderPayButtons(){
+  document.querySelectorAll(".pay-btn[data-pay]").forEach(b => b.classList.toggle("active", b.dataset.pay===state.payment));
+}
+
+function renderEntryTab(){
+  renderRideGrid();
+  renderPriceTypeButtons();
+  renderStubFooter();
+  renderPayButtons();
+  renderReaderSection();
+}
+
+// ---------- Add ticket ----------
+function currentCustomReader(){
+  return document.getElementById("customReaderInput").value.trim();
+}
+async function handleAdd(){
+  const now = new Date();
+  const price = priceForType(state.rideId, state.priceType);
+  let finalReader = null;
+  if(state.payment === "card"){
+    finalReader = state.customReaderMode && currentCustomReader() ? currentCustomReader() : state.reader;
+  }
+  const count = Math.max(1,state.count);
+  const rounds = Math.max(1,state.rounds);
+  const amount = price*count*rounds;
+  const entry = {
+    id: Date.now()+"-"+Math.random().toString(36).slice(2,8),
+    rideId: state.rideId, rideName: rideById(state.rideId).name,
+    count, rounds, priceType: state.priceType,
+    payment: state.payment,
+    reader: finalReader,
+    unit: price, amount,
+    timestamp: now.toISOString(),
+  };
+
+  // Optimistic update: reflect the ticket immediately, sync in the background
+  entries.push(entry);
+  const newCustomReader = state.payment==="card" && state.customReaderMode && currentCustomReader() ? currentCustomReader() : null;
+  if(newCustomReader && !readers.includes(newCustomReader)) readers.push(newCustomReader);
+
+  state.count = 1;
+  state.rounds = 1;
+  state.customReaderMode = false;
+  document.getElementById("customReaderInput").value = "";
+  document.getElementById("addSyncStatus").textContent = "";
+
+  const btn = document.getElementById("addBtn");
+  btn.classList.add("flash");
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Logged`;
+  setTimeout(() => {
+    btn.classList.remove("flash");
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Add ticket`;
+  }, 900);
+
+  renderAll();
+
+  // Background sync — doesn't block the UI
+  apiAddEntry(entry).then(synced => {
+    if(!synced && isConfigured()){
+      document.getElementById("addSyncStatus").textContent = "⚠ Couldn't save to Google Sheet — check your connection";
+    }
+  });
+  if(newCustomReader) apiAddReader(newCustomReader);
+}
+
+// ---------- Paste parser ----------
+async function handleParse(){
+  const text = document.getElementById("pasteText").value;
+  const lines = text.split("\n");
+  const today = new Date();
+  const parsed = lines.map(l => parseLine(l, today)).filter(Boolean);
+  const good = parsed.filter(p => !p.error);
+  const bad = parsed.filter(p => p.error);
+  const parseBtn = document.getElementById("parseBtn");
+  let uniqueNew = [];
+  if(good.length){
+    good.forEach(g => { g.rideName = rideById(g.rideId).name; });
+    entries.push(...good);
+    const newReaders = good.filter(g => g.reader && !readers.includes(g.reader)).map(g => g.reader);
+    uniqueNew = [...new Set(newReaders)];
+    if(uniqueNew.length) readers.push(...uniqueNew);
+  }
+  const summaryEl = document.getElementById("parseSummary");
+  let html = `<div class="ok-line">✓ Logged ${good.length} ticket(s)</div>`;
+  if(bad.length){
+    html += `<div class="err-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Couldn't read: ${bad.map(b=>esc(b.raw)).join(" · ")}</span></div>`;
+  }
+  summaryEl.innerHTML = html;
+  document.getElementById("pasteText").value = "";
+  parseBtn.disabled = true;
+  renderAll();
+
+  // Background sync — doesn't block the UI
+  if(good.length){
+    apiAddEntries(good).then(synced => {
+      if(!synced && isConfigured()){
+        summaryEl.innerHTML += `<div class="err-line">⚠ Couldn't save these to Google Sheet — check your connection</div>`;
+      }
+    });
+    uniqueNew.forEach(name => apiAddReader(name));
+  }
+}
+
+// ---------- Today tab ----------
+function renderTodayTab(){
+  const todayStr = ymd(new Date());
+  const list = entries.filter(e => ymd(new Date(e.timestamp)) === todayStr)
+    .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const total = list.reduce((s,e)=>s+collected(e),0);
+  const guests = list.reduce((s,e)=>s+e.count,0);
+  document.getElementById("todayRevenue").textContent = fmtMoney(total);
+  document.getElementById("todayGuests").textContent = guests;
+
+  const container = document.getElementById("todayList");
+  if(list.length === 0){
+    container.innerHTML = entriesLoaded
+      ? `<div class="empty">No tickets logged yet today. Add one from the New tab.</div>`
+      : `<div class="empty">Loading today's tickets…</div>`;
+    return;
+  }
+  container.innerHTML = list.map(e => {
+    const r = rideById(e.rideId);
+    const time = new Date(e.timestamp).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+    const payDesc = e.payment==="card" ? `Card (${esc(e.reader||"")})` : e.payment==="coupon" ? "Coupon" : "Guest (free)";
+    const roundsPart = e.rounds && e.rounds > 1 ? ` × ${e.rounds} rounds` : "";
+    const amountDisplay = e.payment==="guest"
+      ? `<span style="color:var(--rope)">${fmtMoney(e.amount)}</span><div style="font-size:9.5px;color:var(--text-muted);font-weight:400;text-align:right;">not collected</div>`
+      : fmtMoney(e.amount);
+    return `
+      <div class="entry-row" data-id="${e.id}">
+        <div class="entry-left">
+          <div class="entry-icon">${r.icon}</div>
+          <div>
+            <div class="entry-ride">${r.short}</div>
+            <div class="entry-meta">${e.count} customers${roundsPart} · ${payDesc} · ${time}</div>
+          </div>
+        </div>
+        <div class="entry-right">
+          <div class="entry-amount">${amountDisplay}</div>
+          <button class="del-btn" data-del="${e.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg></button>
+        </div>
+      </div>
+    `;
+  }).join("");
+  container.querySelectorAll(".del-btn").forEach(b => {
+    b.addEventListener("click", async () => {
+      const id = b.dataset.del;
+      b.disabled = true;
+      entries = entries.filter(e => e.id !== id);
+      renderAll();
+      await apiDeleteEntry(id);
+    });
+  });
+}
+
+// ---------- Week / Month analysis ----------
+function rangeSummary(filterFn){
+  const filtered = entries.filter(filterFn);
+  const totalRevenue = filtered.reduce((s,e)=>s+collected(e),0);
+  const totalPeople = filtered.reduce((s,e)=>s+e.count,0);
+  const byRide = RIDES.map(r => {
+    const rEntries = filtered.filter(e => e.rideId===r.id);
+    return { ride:r.short, rideId:r.id,
+      revenue: rEntries.reduce((s,e)=>s+collected(e),0),
+      people: rEntries.reduce((s,e)=>s+e.count,0) };
+  });
+  const cardRevenue = filtered.filter(e=>e.payment==="card").reduce((s,e)=>s+e.amount,0);
+  const couponRevenue = filtered.filter(e=>e.payment==="coupon").reduce((s,e)=>s+e.amount,0);
+  const guestEntries = filtered.filter(e=>e.payment==="guest");
+  const guestCount = guestEntries.reduce((s,e)=>s+e.count,0);
+  const guestValue = guestEntries.reduce((s,e)=>s+e.amount,0);
+  return { filtered, totalRevenue, totalPeople, byRide, cardRevenue, couponRevenue, guestCount, guestValue };
+}
+
+function analysisHTML(data, title, dayChart){
+  const maxRevenue = Math.max(1, ...data.byRide.map(r=>r.revenue));
+  let html = `
+    <div class="section-title">${esc(title)}</div>
+    <div class="stats-row">
+      <div class="stat-tile"><div class="stat-label">Revenue</div><div class="stat-value" style="color:var(--accent)">${fmtMoney(data.totalRevenue)}</div></div>
+      <div class="stat-tile"><div class="stat-label">Customers</div><div class="stat-value">${data.totalPeople}</div></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-tile"><div class="stat-label">Card</div><div class="stat-value" style="color:var(--teal)">${fmtMoney(data.cardRevenue)}</div></div>
+      <div class="stat-tile"><div class="stat-label">Coupon</div><div class="stat-value" style="color:var(--rope)">${fmtMoney(data.couponRevenue)}</div></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-tile"><div class="stat-label">Guests (free)</div><div class="stat-value">${data.guestCount}</div><div class="stat-sub">value ${fmtMoney(data.guestValue)}</div></div>
+    </div>
+    <div class="panel">
+      <div class="section-title" style="color:var(--text-muted)">Revenue by ride</div>
+      ${data.byRide.map(r => `
+        <div class="bar-row">
+          <div class="bar-label">${r.ride}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(r.revenue/maxRevenue)*100}%"></div></div>
+          <div class="bar-value">${fmtMoney(r.revenue)}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="panel" style="padding:0;">
+      <table>
+        <thead><tr><th>Ride</th><th class="num">Customers</th><th class="num">Revenue</th></tr></thead>
+        <tbody>
+          ${data.byRide.map(r => `<tr><td>${r.ride}</td><td class="num">${r.people}</td><td class="num">${fmtMoney(r.revenue)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+  if(dayChart && dayChart.length){
+    const maxDay = Math.max(1, ...dayChart.map(d=>d.revenue));
+    html += `
+      <div class="panel">
+        <div class="section-title" style="color:var(--text-muted)">Daily revenue this month</div>
+        <div class="daychart">
+          ${dayChart.map(d => `
+            <div class="col">
+              <div class="col-bar" style="height:${(d.revenue/maxDay)*100}%"></div>
+              <div class="col-label">${d.day}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+  return html;
+}
+
+function renderWeekTab(){
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate()-6);
+  weekAgo.setHours(0,0,0,0);
+  const weekly = rangeSummary(e => new Date(e.timestamp) >= weekAgo);
+  document.getElementById("weekContent").innerHTML = analysisHTML(weekly, "Last 7 days", null);
+}
+function renderMonthTab(){
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthly = rangeSummary(e => new Date(e.timestamp) >= monthStart);
+  const days = {};
+  monthly.filtered.forEach(e => {
+    const d = ymd(new Date(e.timestamp));
+    days[d] = (days[d]||0) + collected(e);
+  });
+  const dayChart = Object.entries(days).sort(([a],[b]) => a>b?1:-1).map(([d,revenue]) => ({ day: d.slice(8,10), revenue }));
+  const title = now.toLocaleDateString("en-IN",{month:"long",year:"numeric"});
+  document.getElementById("monthContent").innerHTML = analysisHTML(monthly, title, dayChart);
+}
+
+// ---------- Share / WhatsApp formatter ----------
+const RIDE_EMOJI = { zipline:"🪁", zipcycle:"🚴", bungee:"🪂", climbing:"🧗" };
+let shareRange = "today";
+
+function entriesForRange(range){
+  const now = new Date();
+  if(range === "today"){
+    const todayStr = ymd(now);
+    return entries.filter(e => ymd(new Date(e.timestamp)) === todayStr);
+  }
+  if(range === "week"){
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate()-6);
+    weekAgo.setHours(0,0,0,0);
+    return entries.filter(e => new Date(e.timestamp) >= weekAgo);
+  }
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  return entries.filter(e => new Date(e.timestamp) >= monthStart);
+}
+
+function rangeHeading(range){
+  const now = new Date();
+  if(range === "today") return now.toLocaleDateString("en-IN",{weekday:"long", day:"2-digit", month:"long", year:"numeric"});
+  if(range === "week") return "Last 7 days";
+  return now.toLocaleDateString("en-IN",{month:"long", year:"numeric"});
+}
+
+// Builds the raw WhatsApp-ready text (using *word* for WhatsApp bold)
+function buildReportText(range){
+  const list = entriesForRange(range);
+  const totalRevenue = list.reduce((s,e)=>s+collected(e),0);
+  const totalGuests = list.reduce((s,e)=>s+e.count,0);
+  const cardRevenue = list.filter(e=>e.payment==="card").reduce((s,e)=>s+e.amount,0);
+  const couponRevenue = list.filter(e=>e.payment==="coupon").reduce((s,e)=>s+e.amount,0);
+  const compEntries = list.filter(e=>e.payment==="guest");
+  const compCount = compEntries.reduce((s,e)=>s+e.count,0);
+  const compValue = compEntries.reduce((s,e)=>s+e.amount,0);
+
+  const rideLines = RIDES.map(r => {
+    const rEntries = list.filter(e=>e.rideId===r.id);
+    const revenue = rEntries.reduce((s,e)=>s+collected(e),0);
+    const guests = rEntries.reduce((s,e)=>s+e.count,0);
+    if(guests === 0) return null;
+    return `${RIDE_EMOJI[r.id]} ${r.name} — ${guests} customers — ${fmtMoney(revenue)}`;
+  }).filter(Boolean);
+
+  const lines = [];
+  lines.push(`*🏕️ BASECAMP LEDGER*`);
+  lines.push(rangeHeading(range));
+  lines.push("");
+  if(rideLines.length){
+    lines.push(`*Rides*`);
+    lines.push(...rideLines);
+    lines.push("");
+  }
+  lines.push(`*Payments*`);
+  lines.push(`💳 Card: ${fmtMoney(cardRevenue)}`);
+  lines.push(`🎟️ Coupon: ${fmtMoney(couponRevenue)}`);
+  if(compCount > 0){
+    lines.push(`🎁 Guest (free): ${compCount} customers — value ${fmtMoney(compValue)}`);
+  }
+  lines.push("");
+  lines.push(`*Total*`);
+  lines.push(`👥 ${totalGuests} customers`);
+  lines.push(`💰 ${fmtMoney(totalRevenue)}`);
+
+  if(list.length === 0){
+    return `*🏕️ BASECAMP LEDGER*\n${rangeHeading(range)}\n\nNo tickets logged for this period yet.`;
+  }
+  return lines.join("\n");
+}
+
+// Renders the same text into the preview box with *bold* turned into <b>
+function renderShareTab(){
+  const text = buildReportText(shareRange);
+  const html = esc(text).replace(/\*(.+?)\*/g, "<b>$1</b>");
+  document.getElementById("waPreview").innerHTML = html;
+  document.getElementById("sendBtn").href = "https://wa.me/?text=" + encodeURIComponent(text);
+  document.getElementById("copyFeedback").textContent = "";
+}
+
+function initShareControls(){
+  document.querySelectorAll(".range-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      shareRange = chip.dataset.range;
+      document.querySelectorAll(".range-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      renderShareTab();
+    });
+  });
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    const text = buildReportText(shareRange);
+    const feedback = document.getElementById("copyFeedback");
+    try{
+      await navigator.clipboard.writeText(text);
+      feedback.textContent = "✓ Copied — ready to paste into WhatsApp";
+    }catch{
+      feedback.textContent = "Couldn't copy automatically — select and copy the text above";
+    }
+  });
+}
+
+// ---------- Excel export ----------
+let exportRange = "today";
+
+function exportRangeLabel(range){
+  if(range === "today") return "today's tickets";
+  if(range === "week") return "the last 7 days";
+  if(range === "month") return "this month";
+  return "every ticket ever logged";
+}
+function updateExportHint(){
+  const list = entriesForRange(exportRange === "all" ? "all" : exportRange);
+  const count = exportRange === "all" ? entries.length : list.length;
+  document.getElementById("exportHint").textContent =
+    `Includes ${count} ticket${count===1?"":"s"} — ${exportRangeLabel(exportRange)}.`;
+}
+// extend entriesForRange to support "all"
+function entriesForRangeExt(range){
+  if(range === "all") return entries.slice();
+  return entriesForRange(range);
+}
+
+function buildExportRows(range){
+  const list = entriesForRangeExt(range).slice().sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+  return list.map(e => {
+    const d = new Date(e.timestamp);
+    const r = rideById(e.rideId);
+    return {
+      "Date": ymd(d),
+      "Day": d.toLocaleDateString("en-IN", { weekday: "long" }),
+      "Day Type": isWeekend(d) ? "Weekend" : "Weekday",
+      "Time": d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      "Ride": r.name,
+      "Customers": e.count,
+      "Rounds": e.rounds || 1,
+      "Price Type Used": e.priceType === "weekend" ? "Weekend" : "Weekday",
+      "Unit Price (₹)": e.unit,
+      "Ticket Price (₹)": e.amount,
+      "Amount Collected (₹)": collected(e),
+      "Payment Method": e.payment === "card" ? "Card" : e.payment === "coupon" ? "Coupon" : "Guest (Not Paid)",
+      "Card Reader": e.reader || "—",
+    };
+  });
+}
+function buildSummaryRows(range){
+  const list = entriesForRangeExt(range);
+  const rows = RIDES.map(r => {
+    const rEntries = list.filter(e => e.rideId === r.id);
+    return {
+      "Ride": r.name,
+      "Total Customers": rEntries.reduce((s,e)=>s+e.count,0),
+      "Total Revenue Collected (₹)": rEntries.reduce((s,e)=>s+collected(e),0),
+    };
+  });
+  const totalGuests = list.reduce((s,e)=>s+e.count,0);
+  const totalRevenue = list.reduce((s,e)=>s+collected(e),0);
+  const cardRevenue = list.filter(e=>e.payment==="card").reduce((s,e)=>s+e.amount,0);
+  const couponRevenue = list.filter(e=>e.payment==="coupon").reduce((s,e)=>s+e.amount,0);
+  const compEntries = list.filter(e=>e.payment==="guest");
+  const compCount = compEntries.reduce((s,e)=>s+e.count,0);
+  const compValue = compEntries.reduce((s,e)=>s+e.amount,0);
+  rows.push({ "Ride": "", "Total Customers": "", "Total Revenue Collected (₹)": "" });
+  rows.push({ "Ride": "TOTAL", "Total Customers": totalGuests, "Total Revenue Collected (₹)": totalRevenue });
+  rows.push({ "Ride": "Card payments", "Total Customers": "", "Total Revenue Collected (₹)": cardRevenue });
+  rows.push({ "Ride": "Coupon payments", "Total Customers": "", "Total Revenue Collected (₹)": couponRevenue });
+  rows.push({ "Ride": "Guest (not paid) customers", "Total Customers": compCount, "Total Revenue Collected (₹)": `ticket value ${compValue}` });
+  return rows;
+}
+
+function handleExport(){
+  const rows = buildExportRows(exportRange);
+  if(rows.length === 0){
+    document.getElementById("exportHint").textContent = "No tickets to export for this range yet.";
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const dataSheet = XLSX.utils.json_to_sheet(rows);
+  dataSheet["!cols"] = [
+    {wch:12},{wch:11},{wch:10},{wch:8},{wch:18},{wch:10},{wch:8},{wch:14},{wch:12},{wch:10},{wch:16},{wch:16},{wch:16}
+  ];
+  XLSX.utils.book_append_sheet(wb, dataSheet, "Ticket Log");
+
+  const summaryRows = buildSummaryRows(exportRange);
+  const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+  summarySheet["!cols"] = [{wch:20},{wch:14},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
+
+  const stamp = ymd(new Date());
+  XLSX.writeFile(wb, `basecamp-ledger-${exportRange}-${stamp}.xlsx`);
+}
+
+function initExportControls(){
+  document.querySelectorAll(".export-range-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      exportRange = chip.dataset.range;
+      document.querySelectorAll(".export-range-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      updateExportHint();
+    });
+  });
+  document.getElementById("exportBtn").addEventListener("click", handleExport);
+  updateExportHint();
+}
+
+// ---------- Master render ----------
+function renderAll(){
+  renderHeader();
+  renderEntryTab();
+  renderTodayTab();
+  renderWeekTab();
+  renderMonthTab();
+  renderShareTab();
+  if(document.getElementById("exportHint")) updateExportHint();
+}
+
+// ---------- Tabs ----------
+function initTabs(){
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const name = tab.dataset.tab;
+      ["entry","today","week","month","share"].forEach(n => {
+        document.getElementById("panel-"+n).classList.toggle("hidden", n!==name);
+      });
+    });
+  });
+}
+
+// ---------- Static control wiring ----------
+function initControls(){
+  document.getElementById("countMinus").addEventListener("click", () => {
+    state.count = Math.max(1, state.count-1); renderStubFooter();
+  });
+  document.getElementById("countPlus").addEventListener("click", () => {
+    state.count += 1; renderStubFooter();
+  });
+  document.getElementById("roundsMinus").addEventListener("click", () => {
+    state.rounds = Math.max(1, state.rounds-1); renderStubFooter();
+  });
+  document.getElementById("roundsPlus").addEventListener("click", () => {
+    state.rounds += 1; renderStubFooter();
+  });
+  document.querySelectorAll(".pay-btn[data-price]").forEach(b => {
+    b.addEventListener("click", () => { state.priceType = b.dataset.price; renderAll(); });
+  });
+  document.querySelectorAll(".pay-btn[data-pay]").forEach(b => {
+    b.addEventListener("click", () => { state.payment = b.dataset.pay; renderAll(); });
+  });
+  document.getElementById("addBtn").addEventListener("click", handleAdd);
+  document.getElementById("readerSelect").addEventListener("change", (e) => {
+    if(e.target.value === "+ Add new reader…"){
+      state.customReaderMode = true;
+      renderReaderSection();
+      document.getElementById("customReaderInput").focus();
+    } else {
+      state.customReaderMode = false;
+      state.reader = e.target.value;
+      renderReaderSection();
+    }
+  });
+  const pasteText = document.getElementById("pasteText");
+  const parseBtn = document.getElementById("parseBtn");
+  pasteText.addEventListener("input", () => { parseBtn.disabled = !pasteText.value.trim(); });
+  parseBtn.addEventListener("click", handleParse);
+}
+
+// ---------- Init ----------
+(async function init(){
+  document.getElementById("configWarning").classList.toggle("hidden", isConfigured());
+
+  // Show the app shell immediately with sensible defaults — don't make
+  // staff wait on a network round trip just to see the ticket form.
+  readers = [...DEFAULT_READERS];
+  state.reader = readers[0];
+  initTabs();
+  initControls();
+  initShareControls();
+  initExportControls();
+  renderAll();
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+
+  // Fetch real data in the background, then refresh once it arrives.
+  const [loadedEntries, loadedReaders] = await Promise.all([loadEntries(), loadReaders()]);
+  entries = loadedEntries;
+  entriesLoaded = true;
+  readers = loadedReaders.length ? loadedReaders : [...DEFAULT_READERS];
+  state.reader = readers[0];
+  renderAll();
+})();
+</script>
+</body>
+</html>
