@@ -119,6 +119,19 @@
 
   .loading{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:14px;}
 
+  /* Login screen */
+  .login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .login-card{background:var(--paper);color:var(--ink);border-radius:16px;padding:30px 26px;max-width:340px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,.35);text-align:center;}
+  .login-eyebrow{font-family:'Oswald',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.2em;opacity:.6;margin-bottom:8px;}
+  .login-title{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  .login-sub{font-size:12px;opacity:.65;margin-bottom:22px;}
+  .login-input{width:100%;border:2px solid var(--ink);border-radius:10px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;margin-bottom:10px;background:transparent;color:var(--ink);min-height:44px;}
+  .login-input::placeholder{color:var(--ink);opacity:.45;}
+  .login-error{color:var(--danger);font-size:12px;margin-top:12px;min-height:14px;}
+  .logout-btn{background:transparent;border:1px solid var(--line);color:var(--text-muted);padding:8px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .logout-btn svg{width:16px;height:16px;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+
   /* Share / WhatsApp formatter */
   .chip{border:1.5px solid var(--ink);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:600;background:transparent;color:var(--ink);cursor:pointer;min-height:40px;}
   .range-chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
@@ -144,6 +157,19 @@
 <body>
 
 <div id="loading" class="loading">Loading ledger…</div>
+
+<div id="loginScreen" class="login-screen hidden">
+  <div class="login-card">
+    <div class="login-eyebrow">Staff Check-In</div>
+    <div class="login-title">Basecamp Ledger</div>
+    <div class="login-sub">Sign in to start logging tickets</div>
+    <input id="loginName" class="login-input" placeholder="Your name" autocomplete="username" />
+    <input id="loginPassword" type="password" class="login-input" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn" class="add-btn" style="margin-top:6px;">Log in</button>
+    <div id="loginError" class="login-error"></div>
+  </div>
+</div>
+
 <div id="app" class="app hidden">
 
   <header>
@@ -151,7 +177,12 @@
       <div class="title">Basecamp Ledger</div>
       <div class="subtitle">Adventure ops · ticket log</div>
     </div>
-    <div id="rateBadge" class="rate-badge">Weekday rates</div>
+    <div class="header-right">
+      <div id="rateBadge" class="rate-badge">Weekday rates</div>
+      <button id="logoutBtn" class="logout-btn hidden" aria-label="Log out" title="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </button>
+    </div>
   </header>
 
   <div id="configWarning" class="config-warning hidden">
@@ -178,6 +209,10 @@
     <button class="tab" data-tab="share">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
       Reports
+    </button>
+    <button class="tab hidden" data-tab="dashboard" id="dashboardTab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Staff
     </button>
   </div>
 
@@ -246,7 +281,7 @@
 
       <button class="add-btn" id="addBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-        Add ticket
+        Confirm
       </button>
       <div id="addSyncStatus" class="sync-status"></div>
 
@@ -318,13 +353,19 @@
         </button>
       </div>
     </section>
+
+    <!-- HOST DASHBOARD -->
+    <section id="panel-dashboard" class="hidden">
+      <div class="section-title">Staff sign-ins</div>
+      <div id="dashboardContent"></div>
+    </section>
   </main>
 </div>
 
 <script>
 // ---------- Google Sheets backend config ----------
 // Paste the Web App URL you get after deploying Code.gs (ends in /exec).
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyRVfWwLYlE7zPV2dhyRA6TbZUGnJr9pWDndDz6s94JpJ5_Uw24gzdA1Dm3CThPv2WNeA/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbze2xYpK5ytUKWbvLgmlQVEjWqksVIVDV102C-tV0deiVjW9krszWNgrTTTWkHbCukDTg/exec";
 
 // ---------- Config ----------
 const RIDES = [
@@ -429,6 +470,108 @@ async function apiAddReader(name){
     });
     return true;
   }catch(e){ console.error("addReader failed", e); return false; }
+}
+
+// ---------- Auth ----------
+let currentUser = null; // { name, role }
+
+async function apiLogin(name, password){
+  if(!isConfigured()) return { ok:false, error:"Google Sheet not connected yet — finish setup first." };
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "login", name, password }),
+    });
+    return await res.json();
+  }catch(e){ console.error("login failed", e); return { ok:false, error:"Couldn't reach the Sheet. Check your connection." }; }
+}
+async function apiGetLogins(){
+  if(!isConfigured()) return [];
+  try{
+    const res = await fetch(`${WEB_APP_URL}?action=getLogins`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }catch(e){ console.error("getLogins failed", e); return []; }
+}
+function saveSession(user){ try{ sessionStorage.setItem("basecampSession", JSON.stringify(user)); }catch(e){} }
+function loadSession(){ try{ const raw = sessionStorage.getItem("basecampSession"); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
+function clearSession(){ try{ sessionStorage.removeItem("basecampSession"); }catch(e){} }
+
+async function handleLogin(){
+  const nameInput = document.getElementById("loginName");
+  const passInput = document.getElementById("loginPassword");
+  const errEl = document.getElementById("loginError");
+  const btn = document.getElementById("loginBtn");
+  const name = nameInput.value.trim();
+  const password = passInput.value;
+  if(!name || !password){ errEl.textContent = "Enter your name and password."; return; }
+  errEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Checking…";
+  const result = await apiLogin(name, password);
+  btn.disabled = false;
+  btn.textContent = "Log in";
+  if(!result.ok){
+    errEl.textContent = result.error || "Invalid name or password.";
+    return;
+  }
+  currentUser = { name: result.name, role: result.role };
+  saveSession(currentUser);
+  passInput.value = "";
+  document.getElementById("loginScreen").classList.add("hidden");
+  startApp();
+}
+function handleLogout(){
+  clearSession();
+  location.reload();
+}
+function initAuthControls(){
+  document.getElementById("loginBtn").addEventListener("click", handleLogin);
+  document.getElementById("loginPassword").addEventListener("keydown", (e) => { if(e.key === "Enter") handleLogin(); });
+  document.getElementById("loginName").addEventListener("keydown", (e) => { if(e.key === "Enter") document.getElementById("loginPassword").focus(); });
+  document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+}
+
+// ---------- Host dashboard ----------
+async function loadDashboard(){
+  const logins = await apiGetLogins();
+  renderDashboard(logins);
+}
+function renderDashboard(logins){
+  const container = document.getElementById("dashboardContent");
+  if(!logins.length){
+    container.innerHTML = `<div class="empty">No staff sign-ins recorded yet.</div>`;
+    return;
+  }
+  const byName = {};
+  logins.forEach(l => {
+    if(!byName[l.name]) byName[l.name] = { name:l.name, role:l.role, timestamps:[] };
+    byName[l.name].timestamps.push(l.timestamp);
+  });
+  const staffList = Object.values(byName).sort((a,b) =>
+    new Date(Math.max(...b.timestamps.map(t=>new Date(t)))) - new Date(Math.max(...a.timestamps.map(t=>new Date(t))))
+  );
+  let html = `<div class="stats-row">
+    <div class="stat-tile"><div class="stat-label">Total sign-ins</div><div class="stat-value">${logins.length}</div></div>
+    <div class="stat-tile"><div class="stat-label">People seen</div><div class="stat-value">${staffList.length}</div></div>
+  </div>`;
+  staffList.forEach(s => {
+    const sorted = s.timestamps.slice().sort((a,b) => new Date(b)-new Date(a));
+    const last = new Date(sorted[0]);
+    html += `
+      <div class="entry-row">
+        <div class="entry-left">
+          <div class="entry-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div>
+            <div class="entry-ride">${esc(s.name)} <span style="opacity:.5;font-weight:400;text-transform:none;">(${esc(s.role)})</span></div>
+            <div class="entry-meta">${s.timestamps.length} sign-in${s.timestamps.length===1?"":"s"} · last ${last.toLocaleDateString("en-IN",{day:"2-digit",month:"short"})}, ${last.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
 }
 
 // ---------- Parser ----------
@@ -582,7 +725,7 @@ async function handleAdd(){
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Logged`;
   setTimeout(() => {
     btn.classList.remove("flash");
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Add ticket`;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Confirm`;
   }, 900);
 
   renderAll();
@@ -780,7 +923,6 @@ function renderMonthTab(){
 }
 
 // ---------- Share / WhatsApp formatter ----------
-const RIDE_EMOJI = { zipline:"🪁", zipcycle:"🚴", bungee:"🪂", climbing:"🧗" };
 let shareRange = "today";
 
 function entriesForRange(range){
@@ -810,7 +952,6 @@ function rangeHeading(range){
 function buildReportText(range){
   const list = entriesForRange(range);
   const totalRevenue = list.reduce((s,e)=>s+collected(e),0);
-  const totalGuests = list.reduce((s,e)=>s+e.count,0);
   const cardRevenue = list.filter(e=>e.payment==="card").reduce((s,e)=>s+e.amount,0);
   const couponRevenue = list.filter(e=>e.payment==="coupon").reduce((s,e)=>s+e.amount,0);
   const compEntries = list.filter(e=>e.payment==="guest");
@@ -822,11 +963,11 @@ function buildReportText(range){
     const revenue = rEntries.reduce((s,e)=>s+collected(e),0);
     const guests = rEntries.reduce((s,e)=>s+e.count,0);
     if(guests === 0) return null;
-    return `${RIDE_EMOJI[r.id]} ${r.name} — ${guests} customers — ${fmtMoney(revenue)}`;
+    return `${r.name} — ${guests} — ${fmtMoney(revenue)}`;
   }).filter(Boolean);
 
   const lines = [];
-  lines.push(`*🏕️ BASECAMP LEDGER*`);
+  lines.push(`*Adventure Sale*`);
   lines.push(rangeHeading(range));
   lines.push("");
   if(rideLines.length){
@@ -838,15 +979,14 @@ function buildReportText(range){
   lines.push(`💳 Card: ${fmtMoney(cardRevenue)}`);
   lines.push(`🎟️ Coupon: ${fmtMoney(couponRevenue)}`);
   if(compCount > 0){
-    lines.push(`🎁 Guest (free): ${compCount} customers — value ${fmtMoney(compValue)}`);
+    lines.push(`🎁 Guest (free): ${compCount} — value ${fmtMoney(compValue)}`);
   }
   lines.push("");
   lines.push(`*Total*`);
-  lines.push(`👥 ${totalGuests} customers`);
-  lines.push(`💰 ${fmtMoney(totalRevenue)}`);
+  lines.push(`${fmtMoney(totalRevenue)}`);
 
   if(list.length === 0){
-    return `*🏕️ BASECAMP LEDGER*\n${rangeHeading(range)}\n\nNo tickets logged for this period yet.`;
+    return `*Adventure Sale*\n${rangeHeading(range)}\n\nNo tickets logged for this period yet.`;
   }
   return lines.join("\n");
 }
@@ -1002,7 +1142,7 @@ function initTabs(){
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       const name = tab.dataset.tab;
-      ["entry","today","week","month","share"].forEach(n => {
+      ["entry","today","week","month","share","dashboard"].forEach(n => {
         document.getElementById("panel-"+n).classList.toggle("hidden", n!==name);
       });
     });
@@ -1047,9 +1187,12 @@ function initControls(){
   parseBtn.addEventListener("click", handleParse);
 }
 
-// ---------- Init ----------
-(async function init(){
-  document.getElementById("configWarning").classList.toggle("hidden", isConfigured());
+// ---------- App startup (after login) ----------
+async function startApp(){
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("dashboardTab").classList.toggle("hidden", currentUser.role !== "host");
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  document.getElementById("logoutBtn").title = `Signed in as ${currentUser.name} — log out`;
 
   // Show the app shell immediately with sensible defaults — don't make
   // staff wait on a network round trip just to see the ticket form.
@@ -1060,8 +1203,6 @@ function initControls(){
   initShareControls();
   initExportControls();
   renderAll();
-  document.getElementById("loading").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
 
   // Fetch real data in the background, then refresh once it arrives.
   const [loadedEntries, loadedReaders] = await Promise.all([loadEntries(), loadReaders()]);
@@ -1070,6 +1211,25 @@ function initControls(){
   readers = loadedReaders.length ? loadedReaders : [...DEFAULT_READERS];
   state.reader = readers[0];
   renderAll();
+
+  if(currentUser.role === "host"){
+    loadDashboard();
+  }
+}
+
+// ---------- Boot ----------
+(function boot(){
+  document.getElementById("configWarning").classList.toggle("hidden", isConfigured());
+  initAuthControls();
+  document.getElementById("loading").classList.add("hidden");
+
+  const session = loadSession();
+  if(session && session.name && session.role){
+    currentUser = session;
+    startApp();
+  } else {
+    document.getElementById("loginScreen").classList.remove("hidden");
+  }
 })();
 </script>
 </body>
