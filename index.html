@@ -948,53 +948,79 @@ function rangeHeading(range){
   return now.toLocaleDateString("en-IN",{month:"long", year:"numeric"});
 }
 
-// Builds the raw WhatsApp-ready text (using *word* for WhatsApp bold)
+// Builds the raw WhatsApp-ready text (using *word* for WhatsApp bold, _word_ for italic)
 function buildReportText(range){
   const list = entriesForRange(range);
-  const totalRevenue = list.reduce((s,e)=>s+collected(e),0);
+  const totalCollected = list.reduce((s,e)=>s+collected(e),0);
   const cardRevenue = list.filter(e=>e.payment==="card").reduce((s,e)=>s+e.amount,0);
   const couponRevenue = list.filter(e=>e.payment==="coupon").reduce((s,e)=>s+e.amount,0);
-  const compEntries = list.filter(e=>e.payment==="guest");
-  const compCount = compEntries.reduce((s,e)=>s+e.count,0);
-  const compValue = compEntries.reduce((s,e)=>s+e.amount,0);
+  const focEntries = list.filter(e=>e.payment==="guest");
+  const focCount = focEntries.reduce((s,e)=>s+e.count,0);
+  const focValue = focEntries.reduce((s,e)=>s+e.amount,0);
+  const totalFare = totalCollected + focValue; // FOC + Card + Coupon combined
 
+  const DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
+
+  if(list.length === 0){
+    return `🏕️ *ADVENTURE SALE*\n📅 ${rangeHeading(range)}\n${DIV}\n\nNo tickets logged for this period yet.`;
+  }
+
+  // Paid rides only (card + coupon) — FOC riders/fare are excluded here, shown separately below
   const rideLines = RIDES.map(r => {
-    const rEntries = list.filter(e=>e.rideId===r.id);
-    const revenue = rEntries.reduce((s,e)=>s+collected(e),0);
+    const rEntries = list.filter(e=>e.rideId===r.id && e.payment!=="guest");
+    if(rEntries.length === 0) return null;
     const guests = rEntries.reduce((s,e)=>s+e.count,0);
-    if(guests === 0) return null;
-    return `${r.name} — ${guests} — ${fmtMoney(revenue)}`;
+    const revenue = rEntries.reduce((s,e)=>s+collected(e),0);
+    return `▪️ *${r.name}* — ${guests} — ${fmtMoney(revenue)}`;
+  }).filter(Boolean);
+
+  // FOC ride detail: which ride, how many, fare value
+  const focLines = RIDES.map(r => {
+    const rFoc = focEntries.filter(e=>e.rideId===r.id);
+    if(rFoc.length === 0) return null;
+    const c = rFoc.reduce((s,e)=>s+e.count,0);
+    const a = rFoc.reduce((s,e)=>s+e.amount,0);
+    return `▪️ *${r.name}* — ${c}  — ${fmtMoney(a)}`;
   }).filter(Boolean);
 
   const lines = [];
-  lines.push(`*Adventure Sale*`);
-  lines.push(rangeHeading(range));
-  lines.push("");
+  lines.push(`🏕️ *ADVENTURE SALE*`);
+  lines.push(`📅 ${rangeHeading(range)}`);
+  lines.push(DIV);
+
   if(rideLines.length){
-    lines.push(`*Rides*`);
-    lines.push(...rideLines);
     lines.push("");
+    lines.push(`🎡 *RIDES*`);
+    lines.push(...rideLines);
   }
-  lines.push(`*Payments*`);
+
+  if(focLines.length){
+    lines.push("");
+    lines.push(`🆓 *FOC RIDES*`);
+    lines.push(...focLines);
+    lines.push(` Total FOC: ${focCount} — ${fmtMoney(focValue)}`);
+  }
+
+  lines.push("");
+  lines.push(DIV);
+  lines.push(`💰 *PAYMENT SUMMARY*`);
   lines.push(`💳 Card: ${fmtMoney(cardRevenue)}`);
   lines.push(`🎟️ Coupon: ${fmtMoney(couponRevenue)}`);
-  if(compCount > 0){
-    lines.push(`🎁 Guest (free): ${compCount} — value ${fmtMoney(compValue)}`);
-  }
-  lines.push("");
-  lines.push(`*Total*`);
-  lines.push(`${fmtMoney(totalRevenue)}`);
+  lines.push(`👤 FOC:  ${fmtMoney(focValue)}`);
 
-  if(list.length === 0){
-    return `*Adventure Sale*\n${rangeHeading(range)}\n\nNo tickets logged for this period yet.`;
-  }
+  lines.push("");
+  lines.push(DIV);
+  lines.push(`💵 *TOTAL SALE*: ${fmtMoney(totalFare)}`);
+
   return lines.join("\n");
 }
 
 // Renders the same text into the preview box with *bold* turned into <b>
 function renderShareTab(){
   const text = buildReportText(shareRange);
-  const html = esc(text).replace(/\*(.+?)\*/g, "<b>$1</b>");
+  const html = esc(text)
+    .replace(/\*(.+?)\*/g, "<b>$1</b>")
+    .replace(/_(.+?)_/g, "<i>$1</i>");
   document.getElementById("waPreview").innerHTML = html;
   document.getElementById("sendBtn").href = "https://wa.me/?text=" + encodeURIComponent(text);
   document.getElementById("copyFeedback").textContent = "";
