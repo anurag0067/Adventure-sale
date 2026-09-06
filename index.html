@@ -872,8 +872,22 @@ function rangeSummary(filterFn){
       revenue: rEntries.reduce((s,e)=>s+collected(e),0),
       people: rEntries.reduce((s,e)=>s+e.count,0) };
   });
-  const cardRevenue = filtered.filter(e=>e.payment==="card").reduce((s,e)=>s+e.amount,0);
+  const cardEntries = filtered.filter(e=>e.payment==="card");
+  const cardRevenue = cardEntries.reduce((s,e)=>s+e.amount,0);
   const couponRevenue = filtered.filter(e=>e.payment==="coupon").reduce((s,e)=>s+e.amount,0);
+  const readerNames = [...new Set(cardEntries.map(e=>e.reader).filter(Boolean))];
+  const readerTotals = readerNames.map(name => {
+    const es = cardEntries.filter(e => e.reader===name);
+    return { name, count: es.reduce((s,e)=>s+e.count,0), revenue: es.reduce((s,e)=>s+e.amount,0) };
+  }).sort((a,b) => b.count - a.count);
+  const readerByRide = [];
+  readerNames.forEach(name => {
+    RIDES.forEach(r => {
+      const es = cardEntries.filter(e => e.reader===name && e.rideId===r.id);
+      const count = es.reduce((s,e)=>s+e.count,0);
+      if(count > 0) readerByRide.push({ reader:name, ride:r.short, rideId:r.id, count, revenue: es.reduce((s,e)=>s+e.amount,0) });
+    });
+  });
   const guestEntries = filtered.filter(e=>e.payment==="guest");
   const guestCount = guestEntries.reduce((s,e)=>s+e.count,0);
   const guestValue = guestEntries.reduce((s,e)=>s+e.amount,0);
@@ -881,7 +895,7 @@ function rangeSummary(filterFn){
     const nEntries = guestEntries.filter(e => (e.focBy || "FOC by Staff") === name);
     return { name, count: nEntries.reduce((s,e)=>s+e.count,0), value: nEntries.reduce((s,e)=>s+e.amount,0) };
   }).filter(r => r.count > 0);
-  return { filtered, totalRevenue, totalPeople, byRide, cardRevenue, couponRevenue, guestCount, guestValue, focByBreakdown };
+  return { filtered, totalRevenue, totalPeople, byRide, cardRevenue, couponRevenue, guestCount, guestValue, focByBreakdown, readerTotals, readerByRide };
 }
 
 function analysisHTML(data, title, dayChart){
@@ -896,6 +910,24 @@ function analysisHTML(data, title, dayChart){
       <div class="stat-tile"><div class="stat-label">Card</div><div class="stat-value" style="color:var(--teal)">${fmtMoney(data.cardRevenue)}</div></div>
       <div class="stat-tile"><div class="stat-label">Coupon</div><div class="stat-value" style="color:var(--rope)">${fmtMoney(data.couponRevenue)}</div></div>
     </div>
+    ${data.readerTotals && data.readerTotals.length ? `
+    <div class="panel" style="padding:0;">
+      <table>
+        <thead><tr><th>Card reader</th><th class="num">Customers</th><th class="num">Revenue</th></tr></thead>
+        <tbody>
+          ${data.readerTotals.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${r.count}</td><td class="num">${fmtMoney(r.revenue)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="panel" style="padding:0;">
+      <table>
+        <thead><tr><th>Reader</th><th>Ride</th><th class="num">Customers</th><th class="num">Revenue</th></tr></thead>
+        <tbody>
+          ${data.readerByRide.map(r => `<tr><td>${esc(r.reader)}</td><td>${esc(r.ride)}</td><td class="num">${r.count}</td><td class="num">${fmtMoney(r.revenue)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    ` : ""}
     <div class="stats-row">
       <div class="stat-tile"><div class="stat-label">Guests (free)</div><div class="stat-value">${data.guestCount}</div><div class="stat-sub">value ${fmtMoney(data.guestValue)}</div></div>
     </div>
@@ -1011,14 +1043,31 @@ function buildReportText(range){
     return `🏕️ *ADVENTURE SALE*\n📅 ${rangeHeading(range)}\n${DIV}\n\nNo tickets logged for this period yet.`;
   }
 
-  // Paid rides only (card + coupon) — FOC riders/fare are excluded here, shown separately below
-  const rideLines = RIDES.map(r => {
+  // Paid rides only (card + coupon) — FOC riders/fare are excluded here, shown separately below.
+  // Card rides on a reader other than the default one get their own line, tagged with the reader name.
+  const rideLines = [];
+  RIDES.forEach(r => {
     const rEntries = list.filter(e=>e.rideId===r.id && e.payment!=="guest");
-    if(rEntries.length === 0) return null;
-    const guests = rEntries.reduce((s,e)=>s+e.count,0);
-    const revenue = rEntries.reduce((s,e)=>s+collected(e),0);
-    return `▪️ *${r.name}* — ${guests} — ${fmtMoney(revenue)}`;
-  }).filter(Boolean);
+    if(rEntries.length === 0) return;
+    const groups = new Map(); // null = default reader / coupon, otherwise reader name
+    rEntries.forEach(e => {
+      const label = (e.payment==="card" && e.reader && e.reader !== DEFAULT_READERS[0]) ? e.reader : null;
+      if(!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(e);
+    });
+    if(groups.has(null)){
+      const es = groups.get(null);
+      const c = es.reduce((s,e)=>s+e.count,0);
+      const rev = es.reduce((s,e)=>s+collected(e),0);
+      rideLines.push(`▪️ *${r.name}* — ${c} — ${fmtMoney(rev)}`);
+    }
+    [...groups.keys()].filter(k => k !== null).forEach(label => {
+      const es = groups.get(label);
+      const c = es.reduce((s,e)=>s+e.count,0);
+      const rev = es.reduce((s,e)=>s+collected(e),0);
+      rideLines.push(`▪️ *${r.name}* — ${c} — ${fmtMoney(rev)} — ${label}`);
+    });
+  });
 
   // FOC ride detail: which ride, how many, fare value
   const focLines = RIDES.map(r => {
@@ -1170,6 +1219,25 @@ function buildSummaryRows(range){
   rows.push({ "Ride": "", "Total Customers": "", "Total Revenue Collected (₹)": "" });
   rows.push({ "Ride": "TOTAL", "Total Customers": totalGuests, "Total Revenue Collected (₹)": totalRevenue });
   rows.push({ "Ride": "Card payments", "Total Customers": "", "Total Revenue Collected (₹)": cardRevenue });
+  const cardEntries = list.filter(e=>e.payment==="card");
+  const readerNames = [...new Set(cardEntries.map(e=>e.reader).filter(Boolean))];
+  readerNames.forEach(name => {
+    const nEntries = cardEntries.filter(e => e.reader === name);
+    rows.push({
+      "Ride": `— ${name}`,
+      "Total Customers": nEntries.reduce((s,e)=>s+e.count,0),
+      "Total Revenue Collected (₹)": nEntries.reduce((s,e)=>s+e.amount,0),
+    });
+    RIDES.forEach(r => {
+      const rEntries = nEntries.filter(e => e.rideId === r.id);
+      if(rEntries.length === 0) return;
+      rows.push({
+        "Ride": `    ${r.name}`,
+        "Total Customers": rEntries.reduce((s,e)=>s+e.count,0),
+        "Total Revenue Collected (₹)": rEntries.reduce((s,e)=>s+e.amount,0),
+      });
+    });
+  });
   rows.push({ "Ride": "Coupon payments", "Total Customers": "", "Total Revenue Collected (₹)": couponRevenue });
   rows.push({ "Ride": "Guest (not paid) customers", "Total Customers": compCount, "Total Revenue Collected (₹)": `ticket value ${compValue}` });
   FOC_OPTIONS.forEach(name => {
