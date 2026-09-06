@@ -272,6 +272,13 @@
             </div>
             <input id="customReaderInput" class="custom-reader-input hidden" placeholder="Type new reader name" />
           </div>
+
+          <div id="focSection" class="hidden">
+            <div class="step-label">6 · Who approved the FOC?</div>
+            <div class="reader-select-wrap">
+              <select class="reader-select" id="focSelect"></select>
+            </div>
+          </div>
         </div>
         <div class="stub-footer">
           <div class="calc" id="stubCalc">1 × ₹200</div>
@@ -365,7 +372,7 @@
 <script>
 // ---------- Google Sheets backend config ----------
 // Paste the Web App URL you get after deploying Code.gs (ends in /exec).
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbze2xYpK5ytUKWbvLgmlQVEjWqksVIVDV102C-tV0deiVjW9krszWNgrTTTWkHbCukDTg/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzaTuv21F20XzpkPOJ8eGZ8m1nNXcXQVQvvAFto1Ll1vWUaFbcttHEhiZJ5uytKzBHvTQ/exec";
 
 // ---------- Config ----------
 const RIDES = [
@@ -380,6 +387,14 @@ const RIDES = [
 ];
 const rideById = id => RIDES.find(r => r.id === id);
 const DEFAULT_READERS = ["Adventure Reader", "Meltdown", "Tora Tora"];
+const FOC_OPTIONS = [
+  "FOC by Akshat Narayan",
+  "FOC by Gunakesh Tiwari",
+  "FOC by Deepu Tiwari",
+  "FOC by Chandan Narayan",
+  "FOC by Surendra",
+  "FOC by Staff",
+];
 
 // ---------- State ----------
 let entries = [];
@@ -393,6 +408,7 @@ let state = {
   payment: "card",
   reader: DEFAULT_READERS[0],
   customReaderMode: false,
+  focBy: FOC_OPTIONS[0],
 };
 
 // ---------- Helpers ----------
@@ -597,6 +613,10 @@ function parseLine(raw, today){
     const tapMatch = line.match(/tap on ([a-zA-Z0-9 ]+)/i);
     reader = tapMatch ? tapMatch[1].split(",")[0].trim() : "Adventure Reader";
   }
+  let focBy = null;
+  if(payment === "guest"){
+    focBy = FOC_OPTIONS.find(o => lower.includes(o.replace(/^FOC by /i,"").toLowerCase())) || "FOC by Staff";
+  }
   const countMatch = lower.match(/x\s*(\d+)|for\s+(\d+)|(\d+)\s*(?:people|persons|pax)/);
   const count = countMatch ? parseInt(countMatch[1]||countMatch[2]||countMatch[3],10) : 1;
   const roundsMatch = lower.match(/(\d+)\s*rounds?/);
@@ -607,6 +627,7 @@ function parseLine(raw, today){
     id: Date.now()+"-"+Math.random().toString(36).slice(2,8),
     rideId, count, rounds, priceType: isWeekend(today) ? "weekend" : "weekday",
     payment, reader,
+    focBy,
     unit, amount,
     timestamp: today.toISOString(),
   };
@@ -655,6 +676,14 @@ function renderReaderSection(){
   if(state.customReaderMode) select.value = "+ Add new reader…";
   input.classList.toggle("hidden", !state.customReaderMode);
 }
+function renderFocSection(){
+  const section = document.getElementById("focSection");
+  if(state.payment !== "guest"){ section.classList.add("hidden"); return; }
+  section.classList.remove("hidden");
+  if(!FOC_OPTIONS.includes(state.focBy)) state.focBy = FOC_OPTIONS[0];
+  const select = document.getElementById("focSelect");
+  select.innerHTML = FOC_OPTIONS.map(o => `<option value="${esc(o)}" ${state.focBy===o?"selected":""}>${esc(o)}</option>`).join("");
+}
 function renderStubFooter(){
   const now = new Date();
   const price = priceForType(state.rideId, state.priceType);
@@ -683,6 +712,7 @@ function renderEntryTab(){
   renderStubFooter();
   renderPayButtons();
   renderReaderSection();
+  renderFocSection();
 }
 
 // ---------- Add ticket ----------
@@ -696,6 +726,7 @@ async function handleAdd(){
   if(state.payment === "card"){
     finalReader = state.customReaderMode && currentCustomReader() ? currentCustomReader() : state.reader;
   }
+  const focBy = state.payment === "guest" ? (state.focBy || FOC_OPTIONS[0]) : null;
   const count = Math.max(1,state.count);
   const rounds = Math.max(1,state.rounds);
   const amount = price*count*rounds;
@@ -705,6 +736,7 @@ async function handleAdd(){
     count, rounds, priceType: state.priceType,
     payment: state.payment,
     reader: finalReader,
+    focBy,
     unit: price, amount,
     timestamp: now.toISOString(),
   };
@@ -797,7 +829,7 @@ function renderTodayTab(){
   container.innerHTML = list.map(e => {
     const r = rideById(e.rideId);
     const time = new Date(e.timestamp).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
-    const payDesc = e.payment==="card" ? `Card (${esc(e.reader||"")})` : e.payment==="coupon" ? "Coupon" : "Guest (free)";
+    const payDesc = e.payment==="card" ? `Card (${esc(e.reader||"")})` : e.payment==="coupon" ? "Coupon" : `Guest (free) · ${esc(e.focBy||"FOC by Staff")}`;
     const roundsPart = e.rounds && e.rounds > 1 ? ` × ${e.rounds} rounds` : "";
     const amountDisplay = e.payment==="guest"
       ? `<span style="color:var(--rope)">${fmtMoney(e.amount)}</span><div style="font-size:9.5px;color:var(--text-muted);font-weight:400;text-align:right;">not collected</div>`
@@ -845,7 +877,11 @@ function rangeSummary(filterFn){
   const guestEntries = filtered.filter(e=>e.payment==="guest");
   const guestCount = guestEntries.reduce((s,e)=>s+e.count,0);
   const guestValue = guestEntries.reduce((s,e)=>s+e.amount,0);
-  return { filtered, totalRevenue, totalPeople, byRide, cardRevenue, couponRevenue, guestCount, guestValue };
+  const focByBreakdown = FOC_OPTIONS.map(name => {
+    const nEntries = guestEntries.filter(e => (e.focBy || "FOC by Staff") === name);
+    return { name, count: nEntries.reduce((s,e)=>s+e.count,0), value: nEntries.reduce((s,e)=>s+e.amount,0) };
+  }).filter(r => r.count > 0);
+  return { filtered, totalRevenue, totalPeople, byRide, cardRevenue, couponRevenue, guestCount, guestValue, focByBreakdown };
 }
 
 function analysisHTML(data, title, dayChart){
@@ -863,6 +899,16 @@ function analysisHTML(data, title, dayChart){
     <div class="stats-row">
       <div class="stat-tile"><div class="stat-label">Guests (free)</div><div class="stat-value">${data.guestCount}</div><div class="stat-sub">value ${fmtMoney(data.guestValue)}</div></div>
     </div>
+    ${data.focByBreakdown && data.focByBreakdown.length ? `
+    <div class="panel" style="padding:0;">
+      <table>
+        <thead><tr><th>FOC approved by</th><th class="num">Customers</th><th class="num">Value</th></tr></thead>
+        <tbody>
+          ${data.focByBreakdown.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${r.count}</td><td class="num">${fmtMoney(r.value)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    ` : ""}
     <div class="panel">
       <div class="section-title" style="color:var(--text-muted)">Revenue by ride</div>
       ${data.byRide.map(r => `
@@ -999,6 +1045,19 @@ function buildReportText(range){
     lines.push(`🆓 *FOC RIDES*`);
     lines.push(...focLines);
     lines.push(` Total FOC: ${focCount} — ${fmtMoney(focValue)}`);
+
+    const focByLines = FOC_OPTIONS.map(name => {
+      const nEntries = focEntries.filter(e => (e.focBy || "FOC by Staff") === name);
+      if(nEntries.length === 0) return null;
+      const c = nEntries.reduce((s,e)=>s+e.count,0);
+      const a = nEntries.reduce((s,e)=>s+e.amount,0);
+      return `▪️ ${name} — ${c} — ${fmtMoney(a)}`;
+    }).filter(Boolean);
+    if(focByLines.length){
+      lines.push("");
+      lines.push(`🙋 *FOC APPROVED BY*`);
+      lines.push(...focByLines);
+    }
   }
 
   lines.push("");
@@ -1087,6 +1146,7 @@ function buildExportRows(range){
       "Amount Collected (₹)": collected(e),
       "Payment Method": e.payment === "card" ? "Card" : e.payment === "coupon" ? "Coupon" : "Guest (Not Paid)",
       "Card Reader": e.reader || "—",
+      "FOC Approved By": e.payment === "guest" ? (e.focBy || "FOC by Staff") : "—",
     };
   });
 }
@@ -1112,6 +1172,15 @@ function buildSummaryRows(range){
   rows.push({ "Ride": "Card payments", "Total Customers": "", "Total Revenue Collected (₹)": cardRevenue });
   rows.push({ "Ride": "Coupon payments", "Total Customers": "", "Total Revenue Collected (₹)": couponRevenue });
   rows.push({ "Ride": "Guest (not paid) customers", "Total Customers": compCount, "Total Revenue Collected (₹)": `ticket value ${compValue}` });
+  FOC_OPTIONS.forEach(name => {
+    const nEntries = compEntries.filter(e => (e.focBy || "FOC by Staff") === name);
+    if(nEntries.length === 0) return;
+    rows.push({
+      "Ride": `— ${name}`,
+      "Total Customers": nEntries.reduce((s,e)=>s+e.count,0),
+      "Total Revenue Collected (₹)": `ticket value ${nEntries.reduce((s,e)=>s+e.amount,0)}`,
+    });
+  });
   return rows;
 }
 
@@ -1206,6 +1275,9 @@ function initControls(){
       state.reader = e.target.value;
       renderReaderSection();
     }
+  });
+  document.getElementById("focSelect").addEventListener("change", (e) => {
+    state.focBy = e.target.value;
   });
   const pasteText = document.getElementById("pasteText");
   const parseBtn = document.getElementById("parseBtn");
