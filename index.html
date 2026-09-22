@@ -23,6 +23,13 @@
   .subtitle{color:var(--text-muted);font-size:12px;margin-top:2px;}
   .rate-badge{font-size:11px;font-weight:700;padding:7px 11px;border-radius:8px;text-transform:uppercase;letter-spacing:.04em;border:1px solid var(--line);color:var(--rope);}
   .rate-badge.weekend{background:var(--accent);color:var(--bg);border:none;}
+  .sync-badge{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:transparent;cursor:pointer;}
+  .sync-badge:active{opacity:.7;}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);flex-shrink:0;}
+  .sync-badge.live .sync-dot{background:var(--teal);box-shadow:0 0 0 0 rgba(47,168,138,.6);animation:sync-pulse 2s infinite;}
+  .sync-badge.syncing .sync-dot{background:var(--rope);animation:sync-pulse 1s infinite;}
+  .sync-badge.error .sync-dot{background:var(--danger);animation:none;}
+  @keyframes sync-pulse{0%{box-shadow:0 0 0 0 rgba(47,168,138,.5);}70%{box-shadow:0 0 0 6px rgba(47,168,138,0);}100%{box-shadow:0 0 0 0 rgba(47,168,138,0);}}
   .tabs{display:flex;gap:4px;padding:10px 8px 0;}
   .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px;border-radius:10px 10px 0 0;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;background:transparent;color:var(--text-muted);border:none;border-bottom:1px solid var(--line);cursor:pointer;min-height:48px;}
   .tab.active{background:var(--accent);color:var(--bg);border-bottom:none;}
@@ -174,11 +181,14 @@
 
   <header>
     <div>
-      <div class="title">Adventure Ledger</div>
+      <div class="title">Basecamp Ledger</div>
       <div class="subtitle">Adventure ops · ticket log</div>
     </div>
     <div class="header-right">
       <div id="rateBadge" class="rate-badge">Weekday rates</div>
+      <button id="syncBadge" class="sync-badge" title="Tap to refresh now">
+        <span class="sync-dot"></span><span id="syncBadgeText">Live</span>
+      </button>
       <button id="logoutBtn" class="logout-btn hidden" aria-label="Log out" title="Log out">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
       </button>
@@ -278,6 +288,7 @@
             <div class="reader-select-wrap">
               <select class="reader-select" id="focSelect"></select>
             </div>
+            <input id="customFocInput" class="custom-reader-input hidden" placeholder="Type FOC approver's name" />
           </div>
         </div>
         <div class="stub-footer">
@@ -382,26 +393,33 @@ const RIDES = [
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 100-2 1 1 0 000 2zM12 17.5V14l-3-3 4-3 2 3h2"/></svg>' },
   { id:"bungee", name:"Bungee Jump", short:"BUNGEE", weekday:200, weekend:500,
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22V10"/><path d="M8 10h8l-4 6-4-6z"/></svg>' },
-  { id:"climbing", name:"Wall Climbing", short:"WALL CLIMBING", weekday:200, weekend:200,
+  { id:"climbing", name:"Mountain Climbing", short:"CLIMBING", weekday:200, weekend:200,
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-7 4 7M3 21l6-11 3 5.5M13.5 10L17 3l4 8"/></svg>' },
 ];
 const rideById = id => RIDES.find(r => r.id === id);
 const DEFAULT_READERS = ["Adventure Reader", "Meltdown", "Tora Tora"];
 const FOC_OPTIONS = [
-  "FOC by Akshat Sir",
-  "FOC by G.K Sir",
-  "FOC by Deepu Sir",
-  "FOC by Chandan Sir",
-  "FOC by Surendra Sir",
-  "FOC by Roli ma'am",
-  "FOC by Social media",
-  "FOC by Others"
+  "FOC by Akshat Narayan",
+  "FOC by Gunakesh Tiwari",
+  "FOC by Deepu Tiwari",
+  "FOC by Chandan Narayan",
+  "FOC by Surendra",
+  "FOC by Staff",
 ];
 
 // ---------- State ----------
 let entries = [];
 let entriesLoaded = false;
+let pendingEntries = []; // optimistic entries not yet confirmed saved to the Sheet
+let pendingDeleteIds = new Set(); // ids removed locally but not yet confirmed deleted on the Sheet
 let readers = [...DEFAULT_READERS];
+let focOptions = [...FOC_OPTIONS];
+function focNamesInEntries(list){
+  const set = new Set(list.map(e => e.focBy || "FOC by Staff"));
+  const known = FOC_OPTIONS.filter(n => set.has(n));
+  const extra = [...set].filter(n => !FOC_OPTIONS.includes(n)).sort();
+  return [...known, ...extra];
+}
 let state = {
   rideId: "zipline",
   count: 1,
@@ -411,6 +429,7 @@ let state = {
   reader: DEFAULT_READERS[0],
   customReaderMode: false,
   focBy: FOC_OPTIONS[0],
+  customFocMode: false,
 };
 
 // ---------- Helpers ----------
@@ -435,6 +454,69 @@ async function loadEntries(){
     if(data.error) throw new Error(data.error);
     return data;
   }catch(e){ console.error("loadEntries failed", e); return []; }
+}
+
+// ---------- Live sync ----------
+let lastSyncedAt = null;
+let syncTimer = null;
+let syncInFlight = false;
+const SYNC_INTERVAL_MS = 15000;
+
+function setSyncBadge(state, text){
+  const badge = document.getElementById("syncBadge");
+  if(!badge) return;
+  badge.classList.remove("live", "syncing", "error");
+  badge.classList.add(state);
+  document.getElementById("syncBadgeText").textContent = text;
+}
+function syncAgoLabel(){
+  if(!lastSyncedAt) return "Live";
+  const secs = Math.round((Date.now() - lastSyncedAt) / 1000);
+  if(secs < 5) return "Synced";
+  if(secs < 60) return `${secs}s ago`;
+  return `${Math.round(secs/60)}m ago`;
+}
+async function syncFromServer(showSpinner){
+  if(!isConfigured() || syncInFlight) return;
+  syncInFlight = true;
+  if(showSpinner) setSyncBadge("syncing", "Syncing…");
+  try{
+    const [freshEntries, freshReaders, freshFocNames] = await Promise.all([loadEntries(), loadReaders(), loadFocNames()]);
+    // Merge in anything logged locally that hasn't reached the Sheet yet,
+    // and don't let a row we just deleted flash back in from a stale fetch.
+    const freshIds = new Set(freshEntries.map(e => e.id));
+    const stillPending = pendingEntries.filter(p => !freshIds.has(p.id));
+    entries = freshEntries.filter(e => !pendingDeleteIds.has(e.id)).concat(stillPending);
+    entriesLoaded = true;
+    if(freshReaders.length) readers = freshReaders;
+    if(freshFocNames.length) focOptions = freshFocNames;
+    lastSyncedAt = Date.now();
+    renderAll();
+    if(currentUser && currentUser.role === "host") loadDashboard();
+    setSyncBadge("live", syncAgoLabel());
+  }catch(e){
+    console.error("syncFromServer failed", e);
+    setSyncBadge("error", "Offline");
+  } finally {
+    syncInFlight = false;
+  }
+}
+function startSyncPolling(){
+  const badge = document.getElementById("syncBadge");
+  if(!isConfigured()){ badge.classList.add("hidden"); return; }
+  badge.classList.remove("hidden");
+  if(syncTimer) clearInterval(syncTimer);
+  syncTimer = setInterval(() => {
+    if(document.hidden) return; // save battery/data while the tab isn't in view
+    syncFromServer(false);
+  }, SYNC_INTERVAL_MS);
+  setInterval(() => {
+    if(lastSyncedAt && !syncInFlight) setSyncBadge("live", syncAgoLabel());
+  }, 5000);
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden) syncFromServer(true); // catch up immediately when the tab regains focus
+  });
+  badge.addEventListener("click", () => syncFromServer(true));
 }
 async function apiAddEntry(entry){
   if(!isConfigured()) return false;
@@ -488,6 +570,26 @@ async function apiAddReader(name){
     });
     return true;
   }catch(e){ console.error("addReader failed", e); return false; }
+}
+async function loadFocNames(){
+  if(!isConfigured()) return [...FOC_OPTIONS];
+  try{
+    const res = await fetch(`${WEB_APP_URL}?action=getFocNames`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    return data && data.length ? data : [...FOC_OPTIONS];
+  }catch(e){ console.error("loadFocNames failed", e); return [...FOC_OPTIONS]; }
+}
+async function apiAddFocName(name){
+  if(!isConfigured()) return false;
+  try{
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "addFocName", name }),
+    });
+    return true;
+  }catch(e){ console.error("addFocName failed", e); return false; }
 }
 
 // ---------- Auth ----------
@@ -617,7 +719,7 @@ function parseLine(raw, today){
   }
   let focBy = null;
   if(payment === "guest"){
-    focBy = FOC_OPTIONS.find(o => lower.includes(o.replace(/^FOC by /i,"").toLowerCase())) || "FOC by Staff";
+    focBy = focOptions.find(o => lower.includes(o.replace(/^FOC by /i,"").toLowerCase())) || "FOC by Staff";
   }
   const countMatch = lower.match(/x\s*(\d+)|for\s+(\d+)|(\d+)\s*(?:people|persons|pax)/);
   const count = countMatch ? parseInt(countMatch[1]||countMatch[2]||countMatch[3],10) : 1;
@@ -680,11 +782,14 @@ function renderReaderSection(){
 }
 function renderFocSection(){
   const section = document.getElementById("focSection");
+  const input = document.getElementById("customFocInput");
   if(state.payment !== "guest"){ section.classList.add("hidden"); return; }
   section.classList.remove("hidden");
-  if(!FOC_OPTIONS.includes(state.focBy)) state.focBy = FOC_OPTIONS[0];
   const select = document.getElementById("focSelect");
-  select.innerHTML = FOC_OPTIONS.map(o => `<option value="${esc(o)}" ${state.focBy===o?"selected":""}>${esc(o)}</option>`).join("");
+  const options = [...focOptions, "+ Add new name…"];
+  select.innerHTML = options.map(o => `<option value="${esc(o)}" ${(!state.customFocMode && state.focBy===o)?"selected":""}>${esc(o)}</option>`).join("");
+  if(state.customFocMode) select.value = "+ Add new name…";
+  input.classList.toggle("hidden", !state.customFocMode);
 }
 function renderStubFooter(){
   const now = new Date();
@@ -721,6 +826,11 @@ function renderEntryTab(){
 function currentCustomReader(){
   return document.getElementById("customReaderInput").value.trim();
 }
+function currentCustomFocName(){
+  const raw = document.getElementById("customFocInput").value.trim();
+  if(!raw) return "";
+  return raw.toLowerCase().startsWith("foc by") ? raw : `FOC by ${raw}`;
+}
 async function handleAdd(){
   const now = new Date();
   const price = priceForType(state.rideId, state.priceType);
@@ -728,7 +838,9 @@ async function handleAdd(){
   if(state.payment === "card"){
     finalReader = state.customReaderMode && currentCustomReader() ? currentCustomReader() : state.reader;
   }
-  const focBy = state.payment === "guest" ? (state.focBy || FOC_OPTIONS[0]) : null;
+  const focBy = state.payment === "guest"
+    ? (state.customFocMode && currentCustomFocName() ? currentCustomFocName() : (state.focBy || FOC_OPTIONS[0]))
+    : null;
   const count = Math.max(1,state.count);
   const rounds = Math.max(1,state.rounds);
   const amount = price*count*rounds;
@@ -745,13 +857,19 @@ async function handleAdd(){
 
   // Optimistic update: reflect the ticket immediately, sync in the background
   entries.push(entry);
+  pendingEntries.push(entry);
   const newCustomReader = state.payment==="card" && state.customReaderMode && currentCustomReader() ? currentCustomReader() : null;
   if(newCustomReader && !readers.includes(newCustomReader)) readers.push(newCustomReader);
+  const newFocName = state.payment==="guest" && state.customFocMode && currentCustomFocName() ? currentCustomFocName() : null;
+  if(newFocName && !focOptions.includes(newFocName)) focOptions.push(newFocName);
 
   state.count = 1;
   state.rounds = 1;
   state.customReaderMode = false;
   document.getElementById("customReaderInput").value = "";
+  state.customFocMode = false;
+  document.getElementById("customFocInput").value = "";
+  if(newFocName) state.focBy = newFocName;
   document.getElementById("addSyncStatus").textContent = "";
 
   const btn = document.getElementById("addBtn");
@@ -766,11 +884,14 @@ async function handleAdd(){
 
   // Background sync — doesn't block the UI
   apiAddEntry(entry).then(synced => {
-    if(!synced && isConfigured()){
+    if(synced){
+      pendingEntries = pendingEntries.filter(p => p.id !== entry.id);
+    } else if(isConfigured()){
       document.getElementById("addSyncStatus").textContent = "⚠ Couldn't save to Google Sheet — check your connection";
     }
   });
   if(newCustomReader) apiAddReader(newCustomReader);
+  if(newFocName) apiAddFocName(newFocName);
 }
 
 // ---------- Paste parser ----------
@@ -857,8 +978,11 @@ function renderTodayTab(){
       const id = b.dataset.del;
       b.disabled = true;
       entries = entries.filter(e => e.id !== id);
+      pendingEntries = pendingEntries.filter(e => e.id !== id);
+      pendingDeleteIds.add(id);
       renderAll();
       await apiDeleteEntry(id);
+      pendingDeleteIds.delete(id);
     });
   });
 }
@@ -893,7 +1017,7 @@ function rangeSummary(filterFn){
   const guestEntries = filtered.filter(e=>e.payment==="guest");
   const guestCount = guestEntries.reduce((s,e)=>s+e.count,0);
   const guestValue = guestEntries.reduce((s,e)=>s+e.amount,0);
-  const focByBreakdown = FOC_OPTIONS.map(name => {
+  const focByBreakdown = focNamesInEntries(guestEntries).map(name => {
     const nEntries = guestEntries.filter(e => (e.focBy || "FOC by Staff") === name);
     return { name, count: nEntries.reduce((s,e)=>s+e.count,0), value: nEntries.reduce((s,e)=>s+e.amount,0) };
   }).filter(r => r.count > 0);
@@ -1097,7 +1221,7 @@ function buildReportText(range){
     lines.push(...focLines);
     lines.push(` Total FOC: ${focCount} — ${fmtMoney(focValue)}`);
 
-    const focByLines = FOC_OPTIONS.map(name => {
+    const focByLines = focNamesInEntries(focEntries).map(name => {
       const nEntries = focEntries.filter(e => (e.focBy || "FOC by Staff") === name);
       if(nEntries.length === 0) return null;
       const c = nEntries.reduce((s,e)=>s+e.count,0);
@@ -1242,7 +1366,7 @@ function buildSummaryRows(range){
   });
   rows.push({ "Ride": "Coupon payments", "Total Customers": "", "Total Revenue Collected (₹)": couponRevenue });
   rows.push({ "Ride": "Guest (not paid) customers", "Total Customers": compCount, "Total Revenue Collected (₹)": `ticket value ${compValue}` });
-  FOC_OPTIONS.forEach(name => {
+  focNamesInEntries(compEntries).forEach(name => {
     const nEntries = compEntries.filter(e => (e.focBy || "FOC by Staff") === name);
     if(nEntries.length === 0) return;
     rows.push({
@@ -1347,7 +1471,18 @@ function initControls(){
     }
   });
   document.getElementById("focSelect").addEventListener("change", (e) => {
-    state.focBy = e.target.value;
+    if(e.target.value === "+ Add new name…"){
+      state.customFocMode = true;
+      renderFocSection();
+      document.getElementById("customFocInput").focus();
+    } else {
+      state.customFocMode = false;
+      state.focBy = e.target.value;
+    }
+  });
+  document.getElementById("customFocInput").addEventListener("input", (e) => {
+    const name = e.target.value.trim();
+    state.focBy = name ? (name.toLowerCase().startsWith("foc by") ? name : `FOC by ${name}`) : "";
   });
   const pasteText = document.getElementById("pasteText");
   const parseBtn = document.getElementById("parseBtn");
@@ -1366,6 +1501,7 @@ async function startApp(){
   // staff wait on a network round trip just to see the ticket form.
   readers = [...DEFAULT_READERS];
   state.reader = readers[0];
+  focOptions = [...FOC_OPTIONS];
   initTabs();
   initControls();
   initShareControls();
@@ -1373,12 +1509,15 @@ async function startApp(){
   renderAll();
 
   // Fetch real data in the background, then refresh once it arrives.
-  const [loadedEntries, loadedReaders] = await Promise.all([loadEntries(), loadReaders()]);
+  const [loadedEntries, loadedReaders, loadedFocNames] = await Promise.all([loadEntries(), loadReaders(), loadFocNames()]);
   entries = loadedEntries;
   entriesLoaded = true;
   readers = loadedReaders.length ? loadedReaders : [...DEFAULT_READERS];
   state.reader = readers[0];
+  focOptions = loadedFocNames.length ? loadedFocNames : [...FOC_OPTIONS];
+  lastSyncedAt = Date.now();
   renderAll();
+  startSyncPolling();
 
   if(currentUser.role === "host"){
     loadDashboard();
