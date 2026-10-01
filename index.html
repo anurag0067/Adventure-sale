@@ -23,13 +23,6 @@
   .subtitle{color:var(--text-muted);font-size:12px;margin-top:2px;}
   .rate-badge{font-size:11px;font-weight:700;padding:7px 11px;border-radius:8px;text-transform:uppercase;letter-spacing:.04em;border:1px solid var(--line);color:var(--rope);}
   .rate-badge.weekend{background:var(--accent);color:var(--bg);border:none;}
-  .sync-badge{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:transparent;cursor:pointer;}
-  .sync-badge:active{opacity:.7;}
-  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);flex-shrink:0;}
-  .sync-badge.live .sync-dot{background:var(--teal);box-shadow:0 0 0 0 rgba(47,168,138,.6);animation:sync-pulse 2s infinite;}
-  .sync-badge.syncing .sync-dot{background:var(--rope);animation:sync-pulse 1s infinite;}
-  .sync-badge.error .sync-dot{background:var(--danger);animation:none;}
-  @keyframes sync-pulse{0%{box-shadow:0 0 0 0 rgba(47,168,138,.5);}70%{box-shadow:0 0 0 6px rgba(47,168,138,0);}100%{box-shadow:0 0 0 0 rgba(47,168,138,0);}}
   .tabs{display:flex;gap:4px;padding:10px 8px 0;}
   .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px;border-radius:10px 10px 0 0;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;background:transparent;color:var(--text-muted);border:none;border-bottom:1px solid var(--line);cursor:pointer;min-height:48px;}
   .tab.active{background:var(--accent);color:var(--bg);border-bottom:none;}
@@ -88,7 +81,7 @@
 
   /* stats */
   .stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-  .stat-tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;flex:1;min-width:140px;}
+  .stat-tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;flex:1 1 140px;min-width:0;}
   .stat-label{color:var(--text-muted);font-family:'Oswald',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
   .stat-value{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;}
   .stat-sub{color:var(--text-muted);font-size:11px;margin-top:2px;}
@@ -108,21 +101,32 @@
 
   .section-title{font-family:'Oswald',sans-serif;color:var(--rope);font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;}
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;}
-  .bar-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
-  .bar-label{font-family:'Oswald',sans-serif;font-size:12px;width:96px;text-transform:uppercase;font-weight:500;flex-shrink:0;}
-  .bar-track{flex:1;height:16px;border-radius:999px;background:var(--surface-raised);overflow:hidden;}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .bar-label{font-family:'Oswald',sans-serif;font-size:11.5px;line-height:1.2;flex:0 0 84px;min-width:0;text-transform:uppercase;font-weight:500;overflow-wrap:anywhere;}
+  .bar-track{flex:1;min-width:30px;height:16px;border-radius:999px;background:var(--surface-raised);overflow:hidden;}
   .bar-fill{height:100%;background:var(--accent);border-radius:999px;}
-  .bar-value{font-size:12px;width:80px;text-align:right;flex-shrink:0;}
+  .bar-value{font-size:12px;flex:0 0 auto;min-width:64px;text-align:right;white-space:nowrap;}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;font-weight:400;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border-bottom:1px solid var(--line);}
-  th.num,td.num{text-align:right;}
-  td{padding:8px 12px;border-bottom:1px solid var(--line);}
+  th.num,td.num{text-align:right;white-space:nowrap;}
+  td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .table-wrap{padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .table-wrap table{min-width:100%;}
+  .table-wrap th,.table-wrap td{padding:8px 10px;}
+  .table-wrap td:first-child,.table-wrap th:first-child{overflow-wrap:anywhere;}
+  .stat-tile{min-width:0;}
+  .stat-sub{overflow-wrap:anywhere;}
+  .stat-value{overflow-wrap:anywhere;}
 
-  .daychart{display:flex;align-items:flex-end;gap:4px;height:160px;padding-top:10px;}
-  .daychart .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
-  .daychart .col-bar{width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;}
-  .daychart .col-label{font-size:9px;color:var(--text-muted);margin-top:4px;}
+  .daychart-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+  .daychart{display:flex;align-items:stretch;gap:4px;height:170px;min-width:100%;}
+  .daychart .col{flex:1 0 20px;min-width:20px;display:flex;flex-direction:column;}
+  .daychart .col-area{position:relative;flex:1;min-height:0;}
+  .daychart .col-bar{position:absolute;left:0;right:0;bottom:0;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;}
+  .daychart .col-label{font-size:9px;line-height:12px;height:12px;margin-top:4px;text-align:center;color:var(--text-muted);}
+  .chart-note{margin-top:8px;font-size:11px;color:var(--text-muted);}
 
   .loading{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:14px;}
 
@@ -142,8 +146,8 @@
   /* Share / WhatsApp formatter */
   .chip{border:1.5px solid var(--ink);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:600;background:transparent;color:var(--ink);cursor:pointer;min-height:40px;}
   .range-chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
-  .range-chip, .export-range-chip{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:11px;border-color:var(--rope);color:var(--rope);}
-  .range-chip.active, .export-range-chip.active{background:var(--rope);color:var(--ink);}
+  .range-chip, .export-range-chip, .lookup-mode-chip{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:11px;border-color:var(--rope);color:var(--rope);}
+  .range-chip.active, .export-range-chip.active, .lookup-mode-chip.active{background:var(--rope);color:var(--ink);}
   .wa-preview-wrap{background:#0b1410;border:1px solid var(--line);border-radius:14px;padding:4px;}
   .wa-preview{background:#dce5db;color:#1b2a22;border-radius:10px;padding:16px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;min-height:120px;}
   .wa-preview b{font-weight:700;}
@@ -158,6 +162,11 @@
   .export-btn{width:100%;background:var(--teal);color:#08221b;}
   .config-warning{background:#3a2410;color:#f2c98a;border:1px solid #6b4a1e;border-radius:10px;padding:10px 14px;margin:12px 16px 0;font-size:12px;line-height:1.5;}
   .config-warning code{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;}
+  .lookup-picker{display:flex;gap:8px;margin-bottom:16px;}
+  .lookup-input{flex:1;min-width:0;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:14px;min-height:48px;color-scheme:dark;}
+  .lookup-nav{width:48px;border:1px solid var(--line);background:var(--surface);color:var(--rope);border-radius:10px;font-size:22px;cursor:pointer;min-height:48px;}
+  .lookup-nav:disabled{opacity:.3;cursor:default;}
+  @media (max-width:420px){ .tab{font-size:9.5px;letter-spacing:.02em;} }
   .sync-status{margin-top:8px;font-size:12px;color:var(--danger);min-height:14px;text-align:center;}
 </style>
 </head>
@@ -181,14 +190,11 @@
 
   <header>
     <div>
-      <div class="title">Basecamp Ledger</div>
+      <div class="title">Adventure Ledger</div>
       <div class="subtitle">Adventure ops · ticket log</div>
     </div>
     <div class="header-right">
       <div id="rateBadge" class="rate-badge">Weekday rates</div>
-      <button id="syncBadge" class="sync-badge" title="Tap to refresh now">
-        <span class="sync-dot"></span><span id="syncBadgeText">Live</span>
-      </button>
       <button id="logoutBtn" class="logout-btn hidden" aria-label="Log out" title="Log out">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
       </button>
@@ -215,6 +221,10 @@
     <button class="tab" data-tab="month">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
       Month
+    </button>
+    <button class="tab" data-tab="lookup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      Find
     </button>
     <button class="tab" data-tab="share">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
@@ -288,7 +298,6 @@
             <div class="reader-select-wrap">
               <select class="reader-select" id="focSelect"></select>
             </div>
-            <input id="customFocInput" class="custom-reader-input hidden" placeholder="Type FOC approver's name" />
           </div>
         </div>
         <div class="stub-footer">
@@ -328,6 +337,22 @@
     <!-- MONTH -->
     <section id="panel-month" class="hidden">
       <div id="monthContent"></div>
+    </section>
+
+    <!-- LOOKUP: SALE FOR A DATE OR MONTH -->
+    <section id="panel-lookup" class="hidden">
+      <div class="section-title">Check sales for a date or month</div>
+      <div class="range-chips">
+        <button class="chip lookup-mode-chip active" data-mode="date">Specific date</button>
+        <button class="chip lookup-mode-chip" data-mode="month">Month</button>
+      </div>
+      <div class="lookup-picker">
+        <button class="lookup-nav" id="lookupPrev" aria-label="Previous">‹</button>
+        <input type="date" id="lookupDate" class="lookup-input" />
+        <input type="month" id="lookupMonth" class="lookup-input hidden" />
+        <button class="lookup-nav" id="lookupNext" aria-label="Next">›</button>
+      </div>
+      <div id="lookupContent"></div>
     </section>
 
     <!-- SHARE / FORMAT FOR WHATSAPP -->
@@ -393,33 +418,26 @@ const RIDES = [
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 100-2 1 1 0 000 2zM12 17.5V14l-3-3 4-3 2 3h2"/></svg>' },
   { id:"bungee", name:"Bungee Jump", short:"BUNGEE", weekday:200, weekend:500,
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22V10"/><path d="M8 10h8l-4 6-4-6z"/></svg>' },
-  { id:"climbing", name:"Mountain Climbing", short:"CLIMBING", weekday:200, weekend:200,
+  { id:"climbing", name:"Wall Climbing", short:"WALL CLIMBING", weekday:200, weekend:200,
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21l4-7 4 7M3 21l6-11 3 5.5M13.5 10L17 3l4 8"/></svg>' },
 ];
 const rideById = id => RIDES.find(r => r.id === id);
 const DEFAULT_READERS = ["Adventure Reader", "Meltdown", "Tora Tora"];
 const FOC_OPTIONS = [
-  "FOC by Akshat Narayan",
-  "FOC by Gunakesh Tiwari",
-  "FOC by Deepu Tiwari",
-  "FOC by Chandan Narayan",
-  "FOC by Surendra",
-  "FOC by Staff",
+  "FOC by Akshat Sir",
+  "FOC by G.K Sir",
+  "FOC by Deepu Sir",
+  "FOC by Chandan Sir",
+  "FOC by Surendra Sir",
+  "FOC by Roli ma'am",
+  "FOC by Social media",
+  "FOC by Others"
 ];
 
 // ---------- State ----------
 let entries = [];
 let entriesLoaded = false;
-let pendingEntries = []; // optimistic entries not yet confirmed saved to the Sheet
-let pendingDeleteIds = new Set(); // ids removed locally but not yet confirmed deleted on the Sheet
 let readers = [...DEFAULT_READERS];
-let focOptions = [...FOC_OPTIONS];
-function focNamesInEntries(list){
-  const set = new Set(list.map(e => e.focBy || "FOC by Staff"));
-  const known = FOC_OPTIONS.filter(n => set.has(n));
-  const extra = [...set].filter(n => !FOC_OPTIONS.includes(n)).sort();
-  return [...known, ...extra];
-}
 let state = {
   rideId: "zipline",
   count: 1,
@@ -429,7 +447,6 @@ let state = {
   reader: DEFAULT_READERS[0],
   customReaderMode: false,
   focBy: FOC_OPTIONS[0],
-  customFocMode: false,
 };
 
 // ---------- Helpers ----------
@@ -454,69 +471,6 @@ async function loadEntries(){
     if(data.error) throw new Error(data.error);
     return data;
   }catch(e){ console.error("loadEntries failed", e); return []; }
-}
-
-// ---------- Live sync ----------
-let lastSyncedAt = null;
-let syncTimer = null;
-let syncInFlight = false;
-const SYNC_INTERVAL_MS = 15000;
-
-function setSyncBadge(state, text){
-  const badge = document.getElementById("syncBadge");
-  if(!badge) return;
-  badge.classList.remove("live", "syncing", "error");
-  badge.classList.add(state);
-  document.getElementById("syncBadgeText").textContent = text;
-}
-function syncAgoLabel(){
-  if(!lastSyncedAt) return "Live";
-  const secs = Math.round((Date.now() - lastSyncedAt) / 1000);
-  if(secs < 5) return "Synced";
-  if(secs < 60) return `${secs}s ago`;
-  return `${Math.round(secs/60)}m ago`;
-}
-async function syncFromServer(showSpinner){
-  if(!isConfigured() || syncInFlight) return;
-  syncInFlight = true;
-  if(showSpinner) setSyncBadge("syncing", "Syncing…");
-  try{
-    const [freshEntries, freshReaders, freshFocNames] = await Promise.all([loadEntries(), loadReaders(), loadFocNames()]);
-    // Merge in anything logged locally that hasn't reached the Sheet yet,
-    // and don't let a row we just deleted flash back in from a stale fetch.
-    const freshIds = new Set(freshEntries.map(e => e.id));
-    const stillPending = pendingEntries.filter(p => !freshIds.has(p.id));
-    entries = freshEntries.filter(e => !pendingDeleteIds.has(e.id)).concat(stillPending);
-    entriesLoaded = true;
-    if(freshReaders.length) readers = freshReaders;
-    if(freshFocNames.length) focOptions = freshFocNames;
-    lastSyncedAt = Date.now();
-    renderAll();
-    if(currentUser && currentUser.role === "host") loadDashboard();
-    setSyncBadge("live", syncAgoLabel());
-  }catch(e){
-    console.error("syncFromServer failed", e);
-    setSyncBadge("error", "Offline");
-  } finally {
-    syncInFlight = false;
-  }
-}
-function startSyncPolling(){
-  const badge = document.getElementById("syncBadge");
-  if(!isConfigured()){ badge.classList.add("hidden"); return; }
-  badge.classList.remove("hidden");
-  if(syncTimer) clearInterval(syncTimer);
-  syncTimer = setInterval(() => {
-    if(document.hidden) return; // save battery/data while the tab isn't in view
-    syncFromServer(false);
-  }, SYNC_INTERVAL_MS);
-  setInterval(() => {
-    if(lastSyncedAt && !syncInFlight) setSyncBadge("live", syncAgoLabel());
-  }, 5000);
-  document.addEventListener("visibilitychange", () => {
-    if(!document.hidden) syncFromServer(true); // catch up immediately when the tab regains focus
-  });
-  badge.addEventListener("click", () => syncFromServer(true));
 }
 async function apiAddEntry(entry){
   if(!isConfigured()) return false;
@@ -570,26 +524,6 @@ async function apiAddReader(name){
     });
     return true;
   }catch(e){ console.error("addReader failed", e); return false; }
-}
-async function loadFocNames(){
-  if(!isConfigured()) return [...FOC_OPTIONS];
-  try{
-    const res = await fetch(`${WEB_APP_URL}?action=getFocNames`);
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
-    return data && data.length ? data : [...FOC_OPTIONS];
-  }catch(e){ console.error("loadFocNames failed", e); return [...FOC_OPTIONS]; }
-}
-async function apiAddFocName(name){
-  if(!isConfigured()) return false;
-  try{
-    await fetch(WEB_APP_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "addFocName", name }),
-    });
-    return true;
-  }catch(e){ console.error("addFocName failed", e); return false; }
 }
 
 // ---------- Auth ----------
@@ -719,7 +653,7 @@ function parseLine(raw, today){
   }
   let focBy = null;
   if(payment === "guest"){
-    focBy = focOptions.find(o => lower.includes(o.replace(/^FOC by /i,"").toLowerCase())) || "FOC by Staff";
+    focBy = FOC_OPTIONS.find(o => lower.includes(o.replace(/^FOC by /i,"").toLowerCase())) || "FOC by Staff";
   }
   const countMatch = lower.match(/x\s*(\d+)|for\s+(\d+)|(\d+)\s*(?:people|persons|pax)/);
   const count = countMatch ? parseInt(countMatch[1]||countMatch[2]||countMatch[3],10) : 1;
@@ -782,14 +716,11 @@ function renderReaderSection(){
 }
 function renderFocSection(){
   const section = document.getElementById("focSection");
-  const input = document.getElementById("customFocInput");
   if(state.payment !== "guest"){ section.classList.add("hidden"); return; }
   section.classList.remove("hidden");
+  if(!FOC_OPTIONS.includes(state.focBy)) state.focBy = FOC_OPTIONS[0];
   const select = document.getElementById("focSelect");
-  const options = [...focOptions, "+ Add new name…"];
-  select.innerHTML = options.map(o => `<option value="${esc(o)}" ${(!state.customFocMode && state.focBy===o)?"selected":""}>${esc(o)}</option>`).join("");
-  if(state.customFocMode) select.value = "+ Add new name…";
-  input.classList.toggle("hidden", !state.customFocMode);
+  select.innerHTML = FOC_OPTIONS.map(o => `<option value="${esc(o)}" ${state.focBy===o?"selected":""}>${esc(o)}</option>`).join("");
 }
 function renderStubFooter(){
   const now = new Date();
@@ -826,11 +757,6 @@ function renderEntryTab(){
 function currentCustomReader(){
   return document.getElementById("customReaderInput").value.trim();
 }
-function currentCustomFocName(){
-  const raw = document.getElementById("customFocInput").value.trim();
-  if(!raw) return "";
-  return raw.toLowerCase().startsWith("foc by") ? raw : `FOC by ${raw}`;
-}
 async function handleAdd(){
   const now = new Date();
   const price = priceForType(state.rideId, state.priceType);
@@ -838,9 +764,7 @@ async function handleAdd(){
   if(state.payment === "card"){
     finalReader = state.customReaderMode && currentCustomReader() ? currentCustomReader() : state.reader;
   }
-  const focBy = state.payment === "guest"
-    ? (state.customFocMode && currentCustomFocName() ? currentCustomFocName() : (state.focBy || FOC_OPTIONS[0]))
-    : null;
+  const focBy = state.payment === "guest" ? (state.focBy || FOC_OPTIONS[0]) : null;
   const count = Math.max(1,state.count);
   const rounds = Math.max(1,state.rounds);
   const amount = price*count*rounds;
@@ -857,19 +781,13 @@ async function handleAdd(){
 
   // Optimistic update: reflect the ticket immediately, sync in the background
   entries.push(entry);
-  pendingEntries.push(entry);
   const newCustomReader = state.payment==="card" && state.customReaderMode && currentCustomReader() ? currentCustomReader() : null;
   if(newCustomReader && !readers.includes(newCustomReader)) readers.push(newCustomReader);
-  const newFocName = state.payment==="guest" && state.customFocMode && currentCustomFocName() ? currentCustomFocName() : null;
-  if(newFocName && !focOptions.includes(newFocName)) focOptions.push(newFocName);
 
   state.count = 1;
   state.rounds = 1;
   state.customReaderMode = false;
   document.getElementById("customReaderInput").value = "";
-  state.customFocMode = false;
-  document.getElementById("customFocInput").value = "";
-  if(newFocName) state.focBy = newFocName;
   document.getElementById("addSyncStatus").textContent = "";
 
   const btn = document.getElementById("addBtn");
@@ -884,14 +802,11 @@ async function handleAdd(){
 
   // Background sync — doesn't block the UI
   apiAddEntry(entry).then(synced => {
-    if(synced){
-      pendingEntries = pendingEntries.filter(p => p.id !== entry.id);
-    } else if(isConfigured()){
+    if(!synced && isConfigured()){
       document.getElementById("addSyncStatus").textContent = "⚠ Couldn't save to Google Sheet — check your connection";
     }
   });
   if(newCustomReader) apiAddReader(newCustomReader);
-  if(newFocName) apiAddFocName(newFocName);
 }
 
 // ---------- Paste parser ----------
@@ -978,11 +893,8 @@ function renderTodayTab(){
       const id = b.dataset.del;
       b.disabled = true;
       entries = entries.filter(e => e.id !== id);
-      pendingEntries = pendingEntries.filter(e => e.id !== id);
-      pendingDeleteIds.add(id);
       renderAll();
       await apiDeleteEntry(id);
-      pendingDeleteIds.delete(id);
     });
   });
 }
@@ -1017,7 +929,7 @@ function rangeSummary(filterFn){
   const guestEntries = filtered.filter(e=>e.payment==="guest");
   const guestCount = guestEntries.reduce((s,e)=>s+e.count,0);
   const guestValue = guestEntries.reduce((s,e)=>s+e.amount,0);
-  const focByBreakdown = focNamesInEntries(guestEntries).map(name => {
+  const focByBreakdown = FOC_OPTIONS.map(name => {
     const nEntries = guestEntries.filter(e => (e.focBy || "FOC by Staff") === name);
     return { name, count: nEntries.reduce((s,e)=>s+e.count,0), value: nEntries.reduce((s,e)=>s+e.amount,0) };
   }).filter(r => r.count > 0);
@@ -1037,7 +949,7 @@ function analysisHTML(data, title, dayChart){
       <div class="stat-tile"><div class="stat-label">Coupon</div><div class="stat-value" style="color:var(--rope)">${fmtMoney(data.couponRevenue)}</div></div>
     </div>
     ${data.readerTotals && data.readerTotals.length ? `
-    <div class="panel" style="padding:0;">
+    <div class="panel table-wrap">
       <table>
         <thead><tr><th>Card reader</th><th class="num">Customers</th><th class="num">Revenue</th></tr></thead>
         <tbody>
@@ -1045,7 +957,7 @@ function analysisHTML(data, title, dayChart){
         </tbody>
       </table>
     </div>
-    <div class="panel" style="padding:0;">
+    <div class="panel table-wrap">
       <table>
         <thead><tr><th>Reader</th><th>Ride</th><th class="num">Customers</th><th class="num">Revenue</th></tr></thead>
         <tbody>
@@ -1058,7 +970,7 @@ function analysisHTML(data, title, dayChart){
       <div class="stat-tile"><div class="stat-label">Guests (free)</div><div class="stat-value">${data.guestCount}</div><div class="stat-sub">value ${fmtMoney(data.guestValue)}</div></div>
     </div>
     ${data.focByBreakdown && data.focByBreakdown.length ? `
-    <div class="panel" style="padding:0;">
+    <div class="panel table-wrap">
       <table>
         <thead><tr><th>FOC approved by</th><th class="num">Customers</th><th class="num">Value</th></tr></thead>
         <tbody>
@@ -1077,7 +989,7 @@ function analysisHTML(data, title, dayChart){
         </div>
       `).join("")}
     </div>
-    <div class="panel" style="padding:0;">
+    <div class="panel table-wrap">
       <table>
         <thead><tr><th>Ride</th><th class="num">Customers</th><th class="num">Revenue</th></tr></thead>
         <tbody>
@@ -1090,15 +1002,18 @@ function analysisHTML(data, title, dayChart){
     const maxDay = Math.max(1, ...dayChart.map(d=>d.revenue));
     html += `
       <div class="panel">
-        <div class="section-title" style="color:var(--text-muted)">Daily revenue this month</div>
-        <div class="daychart">
-          ${dayChart.map(d => `
-            <div class="col">
-              <div class="col-bar" style="height:${(d.revenue/maxDay)*100}%"></div>
-              <div class="col-label">${d.day}</div>
-            </div>
-          `).join("")}
+        <div class="section-title" style="color:var(--text-muted)">Daily revenue</div>
+        <div class="daychart-scroll">
+          <div class="daychart" style="min-width:${dayChart.length*24}px">
+            ${dayChart.map(d => `
+              <div class="col" title="${esc(d.day)}: ${fmtMoney(d.revenue)}">
+                <div class="col-area"><div class="col-bar" style="height:${(d.revenue/maxDay)*100}%"></div></div>
+                <div class="col-label">${d.day}</div>
+              </div>
+            `).join("")}
+          </div>
         </div>
+        <div class="chart-note">Peak day: ${esc(dayChart.reduce((m,d)=>d.revenue>m.revenue?d:m).day)} · ${fmtMoney(maxDay === 1 && dayChart.every(d=>d.revenue===0) ? 0 : maxDay)}</div>
       </div>
     `;
   }
@@ -1124,6 +1039,97 @@ function renderMonthTab(){
   const dayChart = Object.entries(days).sort(([a],[b]) => a>b?1:-1).map(([d,revenue]) => ({ day: d.slice(8,10), revenue }));
   const title = now.toLocaleDateString("en-IN",{month:"long",year:"numeric"});
   document.getElementById("monthContent").innerHTML = analysisHTML(monthly, title, dayChart);
+}
+
+// ---------- Lookup: sale for a specific date or month ----------
+let lookupMode = "date";
+function localYmd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function localYm(d){ return localYmd(d).slice(0,7); }
+
+function renderLookupTab(){
+  const dateEl = document.getElementById("lookupDate");
+  const monthEl = document.getElementById("lookupMonth");
+  const out = document.getElementById("lookupContent");
+  const isDate = lookupMode === "date";
+  const key = isDate ? dateEl.value : monthEl.value;
+  if(!key){ out.innerHTML = `<div class="empty">Pick a ${isDate ? "date" : "month"} to see its sales.</div>`; return; }
+
+  let filterFn, title;
+  if(isDate){
+    filterFn = e => localYmd(new Date(e.timestamp)) === key;
+    title = new Date(key+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  } else {
+    filterFn = e => localYm(new Date(e.timestamp)) === key;
+    const [y,m] = key.split("-").map(Number);
+    title = new Date(y, m-1, 1).toLocaleDateString("en-IN",{month:"long",year:"numeric"});
+  }
+  if(!entriesLoaded){ out.innerHTML = `<div class="empty">Loading tickets…</div>`; return; }
+
+  const data = rangeSummary(filterFn);
+  if(data.filtered.length === 0){
+    out.innerHTML = `<div class="section-title">${esc(title)}</div><div class="empty">No tickets logged for this ${isDate ? "date" : "month"}.</div>`;
+    return;
+  }
+  const totalSale = data.totalRevenue + data.guestValue; // same definition as WhatsApp "TOTAL SALE" (collected + FOC)
+  let dayChart = null;
+  if(!isDate){
+    const days = {};
+    data.filtered.forEach(e => { const d = localYmd(new Date(e.timestamp)); days[d] = (days[d]||0) + collected(e); });
+    dayChart = Object.entries(days).sort(([a],[b]) => a>b?1:-1).map(([d,revenue]) => ({ day: d.slice(8,10), revenue }));
+  }
+  const totalTile = `
+    <div class="stats-row">
+      <div class="stat-tile"><div class="stat-label">Total sale</div>
+        <div class="stat-value" style="color:var(--accent)">${fmtMoney(totalSale)}</div>
+        <div class="stat-sub">collected ${fmtMoney(data.totalRevenue)} + FOC ${fmtMoney(data.guestValue)}</div>
+      </div>
+    </div>`;
+  out.innerHTML = totalTile + analysisHTML(data, title, dayChart);
+}
+
+function initLookupControls(){
+  const dateEl = document.getElementById("lookupDate");
+  const monthEl = document.getElementById("lookupMonth");
+  const prev = document.getElementById("lookupPrev");
+  const next = document.getElementById("lookupNext");
+  const now = new Date();
+  dateEl.max = localYmd(now); monthEl.max = localYm(now);
+  dateEl.value = localYmd(now); monthEl.value = localYm(now);
+
+  function updateNav(){
+    const key = lookupMode === "date" ? dateEl.value : monthEl.value;
+    const max = lookupMode === "date" ? dateEl.max : monthEl.max;
+    next.disabled = !key || key >= max;
+    prev.disabled = !key;
+  }
+  function step(dir){
+    if(lookupMode === "date"){
+      if(!dateEl.value) return;
+      const d = new Date(dateEl.value+"T00:00:00"); d.setDate(d.getDate()+dir);
+      if(localYmd(d) > dateEl.max) return;
+      dateEl.value = localYmd(d);
+    } else {
+      if(!monthEl.value) return;
+      const [y,m] = monthEl.value.split("-").map(Number);
+      const d = new Date(y, m-1+dir, 1);
+      if(localYm(d) > monthEl.max) return;
+      monthEl.value = localYm(d);
+    }
+    updateNav(); renderLookupTab();
+  }
+  document.querySelectorAll(".lookup-mode-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      lookupMode = chip.dataset.mode;
+      document.querySelectorAll(".lookup-mode-chip").forEach(c => c.classList.toggle("active", c===chip));
+      dateEl.classList.toggle("hidden", lookupMode !== "date");
+      monthEl.classList.toggle("hidden", lookupMode !== "month");
+      updateNav(); renderLookupTab();
+    });
+  });
+  [dateEl, monthEl].forEach(el => el.addEventListener("change", () => { updateNav(); renderLookupTab(); }));
+  prev.addEventListener("click", () => step(-1));
+  next.addEventListener("click", () => step(1));
+  updateNav();
 }
 
 // ---------- Share / WhatsApp formatter ----------
@@ -1221,7 +1227,7 @@ function buildReportText(range){
     lines.push(...focLines);
     lines.push(` Total FOC: ${focCount} — ${fmtMoney(focValue)}`);
 
-    const focByLines = focNamesInEntries(focEntries).map(name => {
+    const focByLines = FOC_OPTIONS.map(name => {
       const nEntries = focEntries.filter(e => (e.focBy || "FOC by Staff") === name);
       if(nEntries.length === 0) return null;
       const c = nEntries.reduce((s,e)=>s+e.count,0);
@@ -1366,7 +1372,7 @@ function buildSummaryRows(range){
   });
   rows.push({ "Ride": "Coupon payments", "Total Customers": "", "Total Revenue Collected (₹)": couponRevenue });
   rows.push({ "Ride": "Guest (not paid) customers", "Total Customers": compCount, "Total Revenue Collected (₹)": `ticket value ${compValue}` });
-  focNamesInEntries(compEntries).forEach(name => {
+  FOC_OPTIONS.forEach(name => {
     const nEntries = compEntries.filter(e => (e.focBy || "FOC by Staff") === name);
     if(nEntries.length === 0) return;
     rows.push({
@@ -1420,6 +1426,7 @@ function renderAll(){
   renderTodayTab();
   renderWeekTab();
   renderMonthTab();
+  renderLookupTab();
   renderShareTab();
   if(document.getElementById("exportHint")) updateExportHint();
 }
@@ -1431,7 +1438,7 @@ function initTabs(){
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       const name = tab.dataset.tab;
-      ["entry","today","week","month","share","dashboard"].forEach(n => {
+      ["entry","today","week","month","lookup","share","dashboard"].forEach(n => {
         document.getElementById("panel-"+n).classList.toggle("hidden", n!==name);
       });
     });
@@ -1471,18 +1478,7 @@ function initControls(){
     }
   });
   document.getElementById("focSelect").addEventListener("change", (e) => {
-    if(e.target.value === "+ Add new name…"){
-      state.customFocMode = true;
-      renderFocSection();
-      document.getElementById("customFocInput").focus();
-    } else {
-      state.customFocMode = false;
-      state.focBy = e.target.value;
-    }
-  });
-  document.getElementById("customFocInput").addEventListener("input", (e) => {
-    const name = e.target.value.trim();
-    state.focBy = name ? (name.toLowerCase().startsWith("foc by") ? name : `FOC by ${name}`) : "";
+    state.focBy = e.target.value;
   });
   const pasteText = document.getElementById("pasteText");
   const parseBtn = document.getElementById("parseBtn");
@@ -1501,23 +1497,20 @@ async function startApp(){
   // staff wait on a network round trip just to see the ticket form.
   readers = [...DEFAULT_READERS];
   state.reader = readers[0];
-  focOptions = [...FOC_OPTIONS];
   initTabs();
   initControls();
   initShareControls();
   initExportControls();
+  initLookupControls();
   renderAll();
 
   // Fetch real data in the background, then refresh once it arrives.
-  const [loadedEntries, loadedReaders, loadedFocNames] = await Promise.all([loadEntries(), loadReaders(), loadFocNames()]);
+  const [loadedEntries, loadedReaders] = await Promise.all([loadEntries(), loadReaders()]);
   entries = loadedEntries;
   entriesLoaded = true;
   readers = loadedReaders.length ? loadedReaders : [...DEFAULT_READERS];
   state.reader = readers[0];
-  focOptions = loadedFocNames.length ? loadedFocNames : [...FOC_OPTIONS];
-  lastSyncedAt = Date.now();
   renderAll();
-  startSyncPolling();
 
   if(currentUser.role === "host"){
     loadDashboard();
